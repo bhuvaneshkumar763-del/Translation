@@ -15,11 +15,20 @@ import { defineExtensionMessaging } from '@webext-core/messaging';
  */
 export interface ProtocolMap {
   // --- Phase 1: config + Google page-translation path ---
+  // background -> content script (tab-targeted)
   getCurrentPageLanguageState(): 'original' | 'translated';
-  translatePage(targetLanguage?: string): void;
+  translatePage(data?: { targetLanguage?: string }): void;
   restorePage(): void;
+  // content script -> background
+  translateHTML(data: {
+    translationService: string;
+    sourceLanguage: string;
+    targetLanguage: string;
+    sourceArray2d: string[][];
+    dontSortResults?: boolean;
+  }): string[][];
 
-  // Filled in during Phase 2+: translateHTML, translateText,
+  // Filled in during Phase 2+: translateText,
   // translateSingleText, detectTabLanguage, getMainFrameTabLanguage,
   // getMainFramePageLanguageState, setPageLanguageState,
   // removeTranslationsWithError, swapTranslationService,
