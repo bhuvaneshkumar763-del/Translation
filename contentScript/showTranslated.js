@@ -522,8 +522,8 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
     }
 
     function disableDarkMode() {
-      if (shadowRoot.getElementById("#darkModeElement")) {
-        shadowRoot.getElementById("#darkModeElement").remove();
+      if (shadowRoot.getElementById("darkModeElement")) {
+        shadowRoot.getElementById("darkModeElement").remove();
         shadowRoot.querySelector("#listen svg").style = "fill: black";
       }
     }
@@ -668,9 +668,12 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
       sDeepL.classList.add("selected");
     } else if (currentTextTranslatorService == "bing") {
       sBing.classList.add("selected");
-    } else {
+    } else if (currentTextTranslatorService == "google") {
       sGoogle.classList.add("selected");
     }
+    // else: the active service (e.g. a custom/"libre" service) has no
+    // corresponding button in this popup — leave nothing highlighted rather
+    // than falsely showing Google as selected.
   }
 
   function destroy() {

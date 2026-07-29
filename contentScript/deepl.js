@@ -92,7 +92,6 @@ void (function () {
       background-color: white;
       border: 1px solid black;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-      border-radius: 10px
       cursor: pointer;
       padding: 5px 10px;
       border-radius: 10px;

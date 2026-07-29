@@ -191,8 +191,8 @@ twpConfig.onReady(function () {
     }
 
     function disableDarkMode() {
-      if (shadowRoot.getElementById("#darkModeElement")) {
-        shadowRoot.getElementById("#darkModeElement").remove();
+      if (shadowRoot.getElementById("darkModeElement")) {
+        shadowRoot.getElementById("darkModeElement").remove();
       }
     }
 

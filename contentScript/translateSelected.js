@@ -27,6 +27,14 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
   let eSelTextTrans;
   let eOrigText;
   let origTextContainer;
+  let sGoogle;
+  let sYandex;
+  let sBing;
+  let sDeepL;
+  let sLibre;
+  let eMore;
+  let eLess;
+  let eMoreOrLess;
 
   let originalTabLanguage = "und";
   let currentTargetLanguages = twpConfig.get("targetLanguages");
@@ -55,6 +63,7 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
     "dontShowIfSelectedTextIsUnknown"
   );
   let fooCount = 0;
+  let selTextResultApplied = false;
 
   pageTranslator.onGetOriginalTabLanguage(function (tabLanguage) {
     originalTabLanguage = tabLanguage;
@@ -388,15 +397,15 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
     eOrigText = shadowRoot.getElementById("eOrigText");
     origTextContainer = shadowRoot.getElementById("origTextContainer");
 
-    const eMoreOrLess = shadowRoot.getElementById("moreOrLess");
-    const eMore = shadowRoot.getElementById("more");
-    const eLess = shadowRoot.getElementById("less");
+    eMoreOrLess = shadowRoot.getElementById("moreOrLess");
+    eMore = shadowRoot.getElementById("more");
+    eLess = shadowRoot.getElementById("less");
 
-    const sGoogle = shadowRoot.getElementById("sGoogle");
-    const sYandex = shadowRoot.getElementById("sYandex");
-    const sBing = shadowRoot.getElementById("sBing");
-    const sDeepL = shadowRoot.getElementById("sDeepL");
-    const sLibre = shadowRoot.getElementById("sLibre");
+    sGoogle = shadowRoot.getElementById("sGoogle");
+    sYandex = shadowRoot.getElementById("sYandex");
+    sBing = shadowRoot.getElementById("sBing");
+    sDeepL = shadowRoot.getElementById("sDeepL");
+    sLibre = shadowRoot.getElementById("sLibre");
     const eCopy = shadowRoot.getElementById("copy");
     const eReplace = shadowRoot.getElementById("replace");
     const eListenOriginal = shadowRoot.getElementById("listenOriginal");
@@ -595,8 +604,8 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
 
       eListenOriginal.classList.remove("selected");
       eListenTranslated.classList.remove("selected");
-      eListenOriginal.setAttribute("title", msgStopListening);
-      eListenTranslated.setAttribute("title", msgStopListening);
+      eListenOriginal.setAttribute("title", msgListen);
+      eListenTranslated.setAttribute("title", msgListen);
 
       if (isPlayingAudio) {
         stopAudio();
@@ -607,6 +616,7 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
           element.setAttribute("title", msgListen);
         });
         element.classList.add("selected");
+        element.setAttribute("title", msgStopListening);
       }
     }
 
@@ -722,65 +732,6 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
       eLess.style.display = "none";
       eMoreOrLess.setAttribute("title", twpI18n.getMessage("more"));
     }
-
-    twpConfig.onChanged((name, newvalue) => {
-      switch (name) {
-        case "enabledServices": {
-          const enabledServices = newvalue;
-          if (enabledServices.includes("google")) {
-            sGoogle.removeAttribute("hidden");
-          } else {
-            sGoogle.setAttribute("hidden", "");
-          }
-          if (enabledServices.includes("bing")) {
-            sBing.removeAttribute("hidden");
-          } else {
-            sBing.setAttribute("hidden", "");
-          }
-          if (enabledServices.includes("yandex")) {
-            sYandex.removeAttribute("hidden");
-          } else {
-            sYandex.setAttribute("hidden", "");
-          }
-          if (enabledServices.includes("deepl")) {
-            sDeepL.removeAttribute("hidden");
-          } else {
-            sDeepL.setAttribute("hidden", "");
-          }
-          break;
-        }
-        case "customServices": {
-          if (newvalue.find((cs) => cs.name === "libre")) {
-            sLibre.removeAttribute("hidden");
-          } else {
-            sLibre.setAttribute("hidden", "");
-          }
-          break;
-        }
-        case "expandPanelTranslateSelectedText":
-          const prevHeight = parseInt(getComputedStyle(eDivResult).height);
-          if (newvalue === "yes") {
-            origTextContainer.style.display = "block";
-            eMore.style.display = "none";
-            eLess.style.display = "block";
-            eMoreOrLess.setAttribute("title", twpI18n.getMessage("less"));
-            eDivResult.style.top =
-              parseInt(eDivResult.style.top) +
-              (prevHeight - parseInt(getComputedStyle(eDivResult).height)) +
-              "px";
-          } else {
-            origTextContainer.style.display = "none";
-            eMore.style.display = "block";
-            eLess.style.display = "none";
-            eMoreOrLess.setAttribute("title", twpI18n.getMessage("more"));
-            eDivResult.style.top =
-              parseInt(eDivResult.style.top) +
-              (prevHeight - parseInt(getComputedStyle(eDivResult).height)) +
-              "px";
-          }
-          break;
-      }
-    });
   }
 
   function destroy() {
@@ -796,6 +747,8 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
     }
     divElement.remove();
     divElement = eButtonTransSelText = eDivResult = null;
+    sGoogle = sYandex = sBing = sDeepL = sLibre = null;
+    eMore = eLess = eMoreOrLess = null;
   }
 
   function destroyIfButtonIsShowing(e) {
@@ -852,6 +805,60 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
       case "dontShowIfSelectedTextIsUnknown":
         dontShowIfSelectedTextIsUnknown = newValue;
         break;
+      case "enabledServices": {
+        if (!divElement) break;
+        const enabledServices = newValue;
+        if (enabledServices.includes("google")) {
+          sGoogle.removeAttribute("hidden");
+        } else {
+          sGoogle.setAttribute("hidden", "");
+        }
+        if (enabledServices.includes("bing")) {
+          sBing.removeAttribute("hidden");
+        } else {
+          sBing.setAttribute("hidden", "");
+        }
+        if (enabledServices.includes("yandex")) {
+          sYandex.removeAttribute("hidden");
+        } else {
+          sYandex.setAttribute("hidden", "");
+        }
+        if (enabledServices.includes("deepl")) {
+          sDeepL.removeAttribute("hidden");
+        } else {
+          sDeepL.setAttribute("hidden", "");
+        }
+        break;
+      }
+      case "customServices": {
+        if (!divElement) break;
+        if (newValue.find((cs) => cs.name === "libre")) {
+          sLibre.removeAttribute("hidden");
+        } else {
+          sLibre.setAttribute("hidden", "");
+        }
+        break;
+      }
+      case "expandPanelTranslateSelectedText": {
+        if (!divElement) break;
+        const prevHeight = parseInt(getComputedStyle(eDivResult).height);
+        if (newValue === "yes") {
+          origTextContainer.style.display = "block";
+          eMore.style.display = "none";
+          eLess.style.display = "block";
+          eMoreOrLess.setAttribute("title", twpI18n.getMessage("less"));
+        } else {
+          origTextContainer.style.display = "none";
+          eMore.style.display = "block";
+          eLess.style.display = "none";
+          eMoreOrLess.setAttribute("title", twpI18n.getMessage("more"));
+        }
+        eDivResult.style.top =
+          parseInt(eDivResult.style.top) +
+          (prevHeight - parseInt(getComputedStyle(eDivResult).height)) +
+          "px";
+        break;
+      }
     }
   });
 
@@ -919,6 +926,7 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
     fooCount++;
     const currentFooCount = fooCount;
     stopAudio();
+    selTextResultApplied = false;
 
     backgroundTranslateSingleText(
       currentTextTranslatorService,
@@ -928,6 +936,7 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
     ).then((result) => {
       if (currentFooCount !== fooCount) return;
 
+      selTextResultApplied = true;
       update_eDivResult(result);
     });
   }
@@ -943,10 +952,15 @@ Promise.all([twpConfig.onReady(), getTabHostName()]).then(function (_) {
 
     translateNewInput();
     const currentFooCount = fooCount;
+    // Fallback only: if the real translation hasn't come back within 1s (slow
+    // network, or the request silently fails — backgroundTranslateSingleText
+    // has no .catch()), open the popup anyway rather than leaving the user
+    // with nothing. Skipped once the real result already landed, so a slow
+    // response can no longer flash stale/empty content over the correct one.
     setTimeout(() => {
       if (currentFooCount !== fooCount) return;
+      if (selTextResultApplied) return;
       update_eDivResult(eSelTextTrans.textContent);
-      fooCount = currentFooCount;
     }, 1000);
   }
 
