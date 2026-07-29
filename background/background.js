@@ -480,6 +480,7 @@ if (typeof chrome.contextMenus !== "undefined") {
       if (
         mimeType &&
         mimeType.toLowerCase() === "application/pdf" &&
+        chrome.pageAction &&
         typeof chrome.pageAction.openPopup !== "undefined"
       ) {
         chrome.pageAction.openPopup();
