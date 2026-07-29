@@ -395,11 +395,20 @@ export function FloatingBubble(props: FloatingBubbleProps) {
 
   return (
     <>
+      {/*
+        Gen 2 Session 3: restyled on the Prism token palette. Values are
+        duplicated here (not @import'd from styles/tokens.css) because this
+        renders inside a shadow root injected into arbitrary third-party
+        pages — the extension's own stylesheet isn't reachable by a plain
+        relative path from there. Keep these in sync with tokens.css by hand
+        if the palette changes. Pointer-event/drag/edge-docking math above
+        (solidOnMount, applyState/previewAt/positionPanel) is untouched.
+      */}
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         .wrap { position: fixed; width: 40px; height: 40px;
-                --accent: #2563eb; --accent2: #1d4ed8; }
+                --accent: #6366f1; --accent2: #4f46e5; }
         .wrap.translated { --accent: #16a34a; --accent2: #15803d; }
 
         .ball {
@@ -448,8 +457,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
           padding: 13px 14px 11px; display: flex; align-items: center; gap: 9px;
           background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
         }
-        .head .hicon { width: 22px; height: 22px; border-radius: 6px; background: rgba(255,255,255,.18);
-          display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+        .head .hicon { width: 22px; height: 22px; padding: 4px; border-radius: 6px; background: rgba(255,255,255,.18); }
         .head .htitle { font-size: 13.5px; font-weight: 700; }
         .head .hsub { font-size: 11px; opacity: .85; font-weight: 500; }
 
@@ -475,7 +483,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
         }
         .chip:hover { background: #eef2f7; }
         .chip svg { width: 17px; height: 17px; }
-        .chip.on { border-color: var(--accent); color: var(--accent); background: rgba(37,99,235,.07); }
+        .chip.on { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,.08); }
 
         .selrow { display: flex; gap: 8px; }
         .selcol { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -490,13 +498,13 @@ export function FloatingBubble(props: FloatingBubbleProps) {
         .sel:hover { border-color: var(--accent); }
 
         @media (prefers-color-scheme: dark) {
-          .panel { background: #1e293b; color: #e2e8f0; box-shadow: 0 12px 40px -10px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06); }
-          .divider { background: #334155; }
-          .chip { background: #273345; border-color: #334155; color: #e2e8f0; }
-          .chip:hover { background: #2f3d52; }
-          .chip.on { background: rgba(96,165,250,.14); }
-          .sel { background: #273345; border-color: #334155; color: #e2e8f0; }
-          .sel option { background: #1e293b; color: #e2e8f0; }
+          .panel { background: #1f1f38; color: #f1f5f9; box-shadow: 0 12px 40px -10px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06); }
+          .divider { background: #33335a; }
+          .chip { background: #232342; border-color: #33335a; color: #f1f5f9; }
+          .chip:hover { background: #2b2b4d; }
+          .chip.on { background: rgba(129,140,248,.18); }
+          .sel { background: #232342; border-color: #33335a; color: #f1f5f9; }
+          .sel option { background: #1f1f38; color: #f1f5f9; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -541,10 +549,12 @@ export function FloatingBubble(props: FloatingBubbleProps) {
         </div>
         <div class="panel" classList={{ pinned: pinned() }} ref={panel}>
           <div class="head">
-            <div class="hicon">文</div>
+            <svg class="hicon" viewBox="0 0 128 128" aria-hidden="true">
+              <polygon points="56.3,29.2 32.6,72 80,72" fill="#fff" />
+            </svg>
             <div>
               <div class="htitle">{translated() ? 'Page translated' : 'Translate this page'}</div>
-              <div class="hsub">TWP · FullPage</div>
+              <div class="hsub">Prism</div>
             </div>
           </div>
           <div class="body">

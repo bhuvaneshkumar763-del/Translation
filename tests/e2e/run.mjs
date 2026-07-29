@@ -31,14 +31,35 @@ if (!existsSync(extensionPath)) {
 
 // Every entrypoint HTML that should render standalone as a plain tab.
 // (offscreen.html is excluded — it's only ever loaded by chrome.offscreen,
-// not as a navigable page, and old-popup.html only exists pre-Session-3.)
+// not as a navigable page. old-popup.html was deleted in Gen 2 Session 3 —
+// one popup now, not two — so it's no longer in this list; if it ever
+// reappears in a build, that's a regression, not something to re-add here.)
+//
+// `check` is an optional extra assertion run against the page after the
+// generic "rendered without error" check passes — used for the Gen 2
+// Session 3 UI rewrite to catch a structurally-broken rebuild (e.g. the
+// options page silently losing its tabs) that a bare "no exception" check
+// wouldn't.
 const candidateEntrypoints = [
-  'popup.html',
-  'options.html',
-  'old-popup.html',
-  'improve-translation.html',
-  'translate-text.html',
-  'translate-document.html',
+  {
+    file: 'popup.html',
+    async check(page) {
+      const hasPrimaryBtn = (await page.locator('.primaryBtn').count()) > 0;
+      if (!hasPrimaryBtn) return 'expected the rebuilt popup\'s .primaryBtn to be present';
+    },
+  },
+  {
+    file: 'options.html',
+    async check(page) {
+      const tabs = await page.locator('[role="tab"]').count();
+      if (tabs !== 6) return `expected 6 tabs (role="tab"), found ${tabs}`;
+      const panels = await page.locator('[role="tabpanel"]').count();
+      if (panels !== 6) return `expected 6 tabpanels, found ${panels}`;
+    },
+  },
+  { file: 'improve-translation.html' },
+  { file: 'translate-text.html' },
+  { file: 'translate-document.html' },
 ];
 
 const userDataDir = mkdtempSync(join(tmpdir(), 'prism-e2e-'));
@@ -63,7 +84,7 @@ try {
   const extId = worker.url().split('/')[2];
   console.log(`Loaded extension ${extId}`);
 
-  for (const entry of candidateEntrypoints) {
+  for (const { file: entry, check } of candidateEntrypoints) {
     if (!existsSync(join(extensionPath, entry))) {
       console.log(`skip ${entry} (not present in this build)`);
       continue;
@@ -89,6 +110,10 @@ try {
       if (!bodyText.trim()) {
         pageErrors.push('body rendered empty');
       }
+      if (check) {
+        const checkError = await check(page);
+        if (checkError) pageErrors.push(checkError);
+      }
     } catch (err) {
       pageErrors.push(String(err));
     }
@@ -100,6 +125,17 @@ try {
       console.log(`pass ${entry}`);
     }
     await page.close();
+  }
+
+  // Toolbar-icon/popup-assignment check: confirm removing old-popup and its
+  // useOldPopup swap logic (Gen 2 Session 3) left resetBrowserAction()
+  // correctly pointing the toolbar action at the one remaining popup.
+  const assignedPopup = await worker.evaluate(() => chrome.action.getPopup({}));
+  if (!assignedPopup.endsWith('/popup.html')) {
+    console.error(`FAIL toolbar-icon popup assignment: expected .../popup.html, got "${assignedPopup}"`);
+    failures++;
+  } else {
+    console.log('pass toolbar-icon popup assignment');
   }
 
   await context.close();

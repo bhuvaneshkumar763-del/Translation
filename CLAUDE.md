@@ -38,9 +38,9 @@ The rewrite is functionally complete:
 - Text-to-speech via an offscreen document.
 - The floating translate bubble (shadow-DOM UI).
 - Selection translation, hover-to-translate tooltips, mobile popup.
-- Both toolbar popups — the current one (`entrypoints/popup`) and the
-  legacy select-menu-driven skin (`entrypoints/old-popup`), swapped at
-  runtime via the `useOldPopup` config key.
+- The toolbar popup (`entrypoints/popup`) — the legacy select-menu-driven
+  `old-popup` alternate skin and its `useOldPopup` swap were removed in
+  Gen 2 Session 3; don't look for either, they're gone on purpose.
 - The options page.
 - The three standalone auxiliary windows: `entrypoints/improve-translation`,
   `entrypoints/translate-text`, `entrypoints/translate-document`.
@@ -58,9 +58,9 @@ were completed afterward. Trust the code and `git log`, not that file's
   (`public/icons/icon-{32,64,128}.png` + `public/icons/icon.svg` source,
   a faceted-prism mark on an indigo→violet gradient).
 - `styles/tokens.css`: shared design tokens (color incl. dark mode, spacing,
-  radius, shadow, type scale). **Not yet consumed by any surface** — that
-  starts in Session 3 (popup/bubble) and continues through Session 5. Don't
-  assume a CSS file importing it exists yet; check first.
+  radius, shadow, type scale). Not consumed by any surface yet as of this
+  Session 1 writeup — adoption started in Session 3 (popup/bubble/options,
+  see that section below) and continues through Session 5.
 - Real test harness: Vitest (`modules/**/*.test.ts`, run via `npm test`) and
   a formalized Playwright E2E smoke suite (`tests/e2e/run.mjs`, run via
   `npm run test:e2e`) replacing the old ad-hoc scratchpad-script pattern.
@@ -153,12 +153,54 @@ complete.** What landed:
   `// @vitest-environment happy-dom` pragma — the main suite stays on the
   faster `node` environment by default).
 
-## Known gaps / next things to look at
+**Gen 2 rebuild — Session 3 (Full primary UI redesign) is complete.** What
+landed:
+- `entrypoints/old-popup/` deleted entirely, along with the `useOldPopup`
+  config key and its swap logic in `background.ts`'s `resetBrowserAction`
+  — one toolbar popup now, not two. `grep`-clean, see git log for the commit.
+- `entrypoints/popup/App.tsx` + `App.css` rebuilt on `styles/tokens.css` —
+  new header (brand mark + status pill showing detected source language or
+  "Translated"), primary CTA button, quick-language pills, a distinct
+  service-switcher row (was easy to mis-read as a 4th language pill before
+  a deliberate fix — keep it visually separate from the language pills if
+  you touch this again), toggle-style rows instead of plain checkboxes.
+  Every handler/state signal is unchanged from before this session — only
+  the render/markup and CSS changed.
+- `components/bubble/FloatingBubble.tsx`: only the inline `<style>` block
+  and the `.head` icon/subtitle markup changed (indigo/violet gradient
+  replacing blue, "Prism" replacing "TWP · FullPage"). The pointer-event/
+  drag/edge-docking math (`solidOnMount`, `applyState`/`previewAt`/
+  `positionPanel`) is byte-for-byte untouched, verified both by code review
+  and a real hover/drag check via Playwright. Token values are **duplicated
+  inline**, not `@import`'d — this component renders inside a closed shadow
+  root injected into arbitrary third-party pages, which can't reach the
+  extension's own `styles/tokens.css` by a relative path. Keep the two in
+  sync by hand if the palette ever changes.
+- `entrypoints/options/App.tsx` + `App.css`: restructured from one ~700-line
+  scroll into 6 ARIA-tabbed panels (General, Page, Selection & hover, Voice,
+  Dictionary, Advanced) — `role="tablist"`/`"tab"`/`"tabpanel"`, arrow-key
+  navigation (Home/End too), automatic activation per the ARIA APG pattern.
+  All 10 original `<Section>`s preserved verbatim, just regrouped — no
+  settings lost. The LLM/on-device provider fields (Advanced tab) got a
+  distinct highlighted card style (`.aiHighlight`), not just plain fields.
+- **Real visual verification, not just "it compiles"**: every rebuilt
+  surface (popup light/dark, bubble idle/hover on a real local test page,
+  options all-tabs/dark-mode, keyboard tab navigation) was screenshotted via
+  an ad hoc Playwright run and actually looked at before calling this done
+  — including catching and fixing a real issue (the service-switcher chip
+  originally looked like a 4th language pill) that `tsc`/tests alone would
+  never have caught.
+- `tests/e2e/run.mjs` gained per-entrypoint structural `check` callbacks
+  (popup's `.primaryBtn` exists; options has exactly 6 `role="tab"` and 6
+  `role="tabpanel"` elements) and a toolbar-icon popup-assignment check
+  (`chrome.action.getPopup({})` resolves to `.../popup.html`) confirming
+  the old-popup removal didn't break `resetBrowserAction`.
+- Lint findings: 66 (end of Session 2) → 53 errors. Still not part of the
+  CI gate; remaining findings are concentrated in surfaces Session 4
+  touches (hover-tooltip, mobile-popup, selection-popup, the standalone
+  windows).
 
-- **`entrypoints/old-popup/` still exists.** It's slated for full deletion
-  in Session 3 of the Gen 2 plan (a "radically different product" shouldn't
-  ship two competing popup designs) — don't restyle it, don't invest in it,
-  it's going away.
+## Known gaps / next things to look at
 - **Release notes aren't wired into the new options page.** `showReleaseNotes`
   is still a config key (`modules/config/schema.ts`) but nothing renders
   release notes anywhere in the new UI. The old `options/release-notes/en.html`
@@ -180,9 +222,11 @@ entrypoints/         WXT entrypoints — one per browser-visible surface
                               selection, mobile popup
   content-deepl-bridge.content.ts   scrapes DeepL's own web UI (live-tab bridge,
                                      not a backend API call)
-  popup/, old-popup/, options/, improve-translation/, translate-text/,
+  popup/, options/, improve-translation/, translate-text/,
   translate-document/
                          each: index.html + main.tsx (Solid) + App.tsx + App.css
+                         (old-popup/ deleted in Gen 2 Session 3 — one popup
+                         now, not two)
 
 modules/              framework-agnostic domain logic, imported by entrypoints
   config/                zod schema + chrome.storage.local-backed store

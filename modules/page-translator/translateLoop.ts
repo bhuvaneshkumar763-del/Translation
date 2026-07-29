@@ -1,5 +1,5 @@
-import { getBatchingHint } from '../providers/descriptors';
 import { sendMessage } from '../messaging/protocol';
+import { getBatchingHint } from '../providers/descriptors';
 import { createDedupeTracker } from './dedupe';
 import { groupNodesForBatching } from './grouping';
 import { createMutationWatcher } from './mutationWatcher';

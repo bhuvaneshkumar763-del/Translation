@@ -10,11 +10,14 @@ import './App.css';
 /**
  * The toolbar popup, ported from popup/popup.js + popup.html. Simplified
  * relative to the old version: no w3.css (hand-rolled CSS instead, same call
- * as elsewhere in this rewrite), no "switch to old-popup"/simple-vs-complex
- * toggle (the old-popup alternate UI itself isn't ported in this phase — see
- * the Phase 6 commit notes), and the "more/less" expand only covers the
- * hover-related checkboxes rather than the old code's more granular
- * per-section reveal state (`popupPanelSection`).
+ * as elsewhere in this rewrite), no old-popup alternate skin (deleted in
+ * Gen 2 Session 3 — one popup now, not two), and the "more/less" expand
+ * only covers the hover-related checkboxes rather than the old code's more
+ * granular per-section reveal state (`popupPanelSection`).
+ *
+ * Gen 2 Session 3: rebuilt on `styles/tokens.css`'s design language — same
+ * functions/handlers/state as before, new layout (header + primary CTA +
+ * pill row + toggle rows + menu list) instead of the flat button stack.
  */
 
 const SERVICE_LABELS: Record<Config['pageTranslatorService'], string> = {
@@ -192,23 +195,37 @@ function App() {
     codeToLanguage(lang === 'und' ? 'en' : lang, effectiveUiLanguage()),
   );
 
+  const translated = () => pageState() === 'translated';
+
   return (
     <Show when={ready()} fallback={<div class="loading">Loading…</div>}>
       <div class="popup">
-        <div class="topRow">
-          <button
-            class="langBtn"
-            classList={{ active: pageState() === 'original' }}
-            on:click={toggleTranslate}
-            disabled={busy()}
-          >
-            {pageState() === 'original' ? `Original (${langResource() ?? '…'})` : 'Show original'}
-          </button>
+        <header class="header">
+          <div class="brand">
+            <svg class="brandIcon" viewBox="0 0 128 128" aria-hidden="true">
+              <polygon points="56.3,29.2 32.6,72 80,72" fill="currentColor" />
+              <circle cx="87" cy="65" r="5.6" fill="var(--prism-accent-amber)" />
+              <circle cx="97" cy="72" r="4.1" fill="var(--prism-accent-rose)" />
+              <circle cx="106" cy="79" r="2.7" fill="var(--prism-accent-teal)" />
+            </svg>
+            <span class="brandName">Prism</span>
+          </div>
+          <span class="statusPill" classList={{ on: translated() }}>
+            {translated() ? 'Translated' : `Original · ${langResource() ?? '…'}`}
+          </span>
+        </header>
+
+        <button type="button" class="primaryBtn" on:click={toggleTranslate} disabled={busy()}>
+          {translated() ? 'Show original' : 'Translate this page'}
+        </button>
+
+        <div class="langPills" role="group" aria-label="Quick target languages">
           <For each={twpConfig.get('targetLanguages').slice(0, 3)}>
             {(code) => (
               <button
-                class="langBtn"
-                classList={{ active: pageState() === 'translated' && code === targetLanguage() }}
+                type="button"
+                class="langPill"
+                classList={{ on: translated() && code === targetLanguage() }}
                 on:click={() => translateToLanguage(code)}
                 disabled={busy()}
               >
@@ -218,32 +235,34 @@ function App() {
           </For>
         </div>
 
-        <div class="serviceRow">
-          <button class="serviceBtn" on:click={onSwapService} title="Switch translation service">
-            {SERVICE_LABELS[service()]}
-          </button>
-        </div>
+        <button type="button" class="serviceChip" on:click={onSwapService} title="Switch translation service">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M7 7h11M7 7l3-3M7 7l3 3M17 17H6m11 0-3 3m3-3-3-3" />
+          </svg>
+          <span>Using {SERVICE_LABELS[service()]}</span>
+        </button>
 
-        <div class="checks">
+        <div class="toggleList">
           <Show when={originalLanguage() !== 'und' && originalLanguage() !== targetLanguage()}>
-            <label class="check">
+            <label class="toggleRow">
+              <span>Always translate from {langResource()}</span>
               <input
                 type="checkbox"
                 checked={twpConfig.get('alwaysTranslateLangs').includes(originalLanguage())}
                 on:change={toggleAlwaysTranslateLang}
               />
-              Always translate from {langResource()}
             </label>
           </Show>
-          <label class="check">
+          <label class="toggleRow">
+            <span>Always translate this site</span>
             <input
               type="checkbox"
               checked={twpConfig.get('alwaysTranslateSites').includes(hostname())}
               on:change={toggleAlwaysTranslateSite}
             />
-            Always translate this site
           </label>
-          <label class="check bubbleToggle">
+          <label class="toggleRow accent">
+            <span>Show the floating translate bubble</span>
             <input
               type="checkbox"
               checked={
@@ -253,73 +272,88 @@ function App() {
               }
               on:change={toggleFloatingBubble}
             />
-            Show the floating translate bubble
           </label>
         </div>
 
-        <div class="expandBtn" on:click={() => setShowMore(!showMore())}>
-          {showMore() ? 'Less ▲' : 'More ▼'}
-        </div>
+        <button
+          type="button"
+          class="expandBtn"
+          aria-expanded={showMore()}
+          on:click={() => setShowMore(!showMore())}
+        >
+          {showMore() ? 'Less' : 'More settings'}
+          <svg
+            class="chev"
+            classList={{ open: showMore() }}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
 
         <Show when={showMore()}>
-          <div class="checks">
-            <label class="check">
+          <div class="toggleList">
+            <label class="toggleRow">
+              <span>Show the button to translate selected text</span>
               <input
                 type="checkbox"
                 checked={twpConfig.get('showTranslateSelectedButton') === 'yes'}
                 on:change={toggleShowTranslateSelectedButton}
               />
-              Show the button to translate selected text
             </label>
-            <label class="check">
+            <label class="toggleRow">
+              <span>Show original text when hovering</span>
               <input
                 type="checkbox"
                 checked={twpConfig.get('showOriginalTextWhenHovering') === 'yes'}
                 on:change={toggleShowOriginalOnHover}
               />
-              Show original text when hovering
             </label>
-            <label class="check">
+            <label class="toggleRow">
+              <span>Show translation when hovering over this site</span>
               <input
                 type="checkbox"
                 checked={twpConfig.get('sitesToTranslateWhenHovering').includes(hostname())}
                 on:change={toggleShowTranslatedOnHoverSite}
               />
-              Show translation when hovering over this site
             </label>
             <Show when={originalLanguage() !== 'und'}>
-              <label class="check">
+              <label class="toggleRow">
+                <span>Show translation when hovering over websites in {langResource()}</span>
                 <input
                   type="checkbox"
                   checked={twpConfig.get('langsToTranslateWhenHovering').includes(originalLanguage())}
                   on:change={toggleShowTranslatedOnHoverLang}
                 />
-                Show translation when hovering over websites in {langResource()}
               </label>
             </Show>
           </div>
         </Show>
 
-        <div class="menuRow">
-          <button class="menuBtn" on:click={openImproveTranslation}>
+        <nav class="menuList">
+          <button type="button" class="menuBtn" on:click={openImproveTranslation}>
             Improve translation…
           </button>
-          <button class="menuBtn" on:click={openTranslateText}>
+          <button type="button" class="menuBtn" on:click={openTranslateText}>
             Translate text…
           </button>
-          <button class="menuBtn" on:click={openTranslateDocument}>
+          <button type="button" class="menuBtn" on:click={openTranslateDocument}>
             Translate document…
           </button>
-          <button class="menuBtn" on:click={toggleNeverTranslateSite}>
+          <button type="button" class="menuBtn" on:click={toggleNeverTranslateSite}>
             Never translate this site
           </button>
-          <button class="menuBtn" on:click={openInGoogleTranslate}>
+          <button type="button" class="menuBtn" on:click={openInGoogleTranslate}>
             Open in Google Translate
           </button>
-          <button class="menuBtn" on:click={openOptions}>
+          <button type="button" class="menuBtn" on:click={openOptions}>
             More options…
           </button>
-        </div>
+        </nav>
       </div>
     </Show>
   );

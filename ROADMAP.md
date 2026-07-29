@@ -103,8 +103,13 @@ newer skeleton.
     flat global map — `schema.ts:59`).
 16. Side-by-side original/translated reading view (not just in-place
     replacement).
-17. If going fully independent as a product: full rebrand away from the
-    TWP name/icon lineage, not just the `description` string fix in Tier 1.
+17. ✅ **Largely done (Sessions 1 + 3).** Full rebrand away from the TWP
+    name/icon lineage: new name/icon/manifest strings (Session 1), and now
+    every primary UI surface — popup, floating bubble, options — actually
+    *looks* like Prism, not TWP with new copy. The old-popup alternate skin
+    (a direct TWP-lineage artifact) is deleted. What's left: the remaining
+    surfaces (hover-tooltip, mobile-popup, selection-popup, the standalone
+    windows), planned for Session 4/5.
 
 ## Not on this list on purpose
 

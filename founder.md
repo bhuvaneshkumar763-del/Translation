@@ -72,12 +72,7 @@ You can tell it "always translate this site" or "never translate this
 site," and "always translate from this language," and it remembers that
 per-website — so you don't have to keep re-telling it.
 
-**8. Two different "look and feel" options for the popup.**
-There's a modern, simplified popup, and a classic/old-style popup (for
-people who are used to the original extension this is based on and prefer
-its look). You can switch between them.
-
-**9. A few extra helper windows:**
+**8. A few extra helper windows:**
    - **"Improve translation"** — lets you manually correct which language a
      site is in, or which translation service/settings are used for it,
      if the automatic detection guessed wrong.
@@ -89,16 +84,16 @@ its look). You can switch between them.
      doesn't do the translating itself — it just sends you to the right
      external tool).
 
-**10. A custom dictionary.**
+**9. A custom dictionary.**
 You can teach it to always translate certain words or phrases your own way
 (useful for names, brands, or jargon that automatic translation gets
 wrong).
 
-**11. It reads translations out loud (text-to-speech).**
+**10. It reads translations out loud (text-to-speech).**
 Selected text or a translated page can be read aloud, in several of the
 helper windows.
 
-**12. It saves translations so re-visiting a page is instant.**
+**11. It saves translations so re-visiting a page is instant.**
 Previously-translated text is cached on your own device, so if you come
 back to a page you already translated, it doesn't have to ask the
 translation service again — it's instant, and it also means slightly less
@@ -125,9 +120,17 @@ are all the same or better, just built on sturdier foundations.
 
 ## Current state
 
-Every feature described above is built and working. The two popup styles
-(modern and classic), the floating bubble, the selection/hover translation,
-mobile support, and all three helper windows ("Improve translation",
-"Translate text", "Translate document") are all in place. Nothing user-
-facing is currently missing compared to the original extension this is
-based on, aside from the two intentionally-dropped items listed above.
+Every feature described above is built and working. The toolbar popup, the
+floating bubble, the selection/hover translation, mobile support, and all
+three helper windows ("Improve translation", "Translate text", "Translate
+document") are all in place. Nothing user-facing is currently missing
+compared to the original extension this is based on, aside from the two
+intentionally-dropped items listed above.
+
+One thing that *is* a deliberate change, not a gap: the classic/old-style
+popup skin mentioned in earlier versions of this file has been retired —
+Prism now ships one toolbar popup, redesigned, instead of two competing
+looks. The popup, the floating bubble, and the settings page have all been
+given a fresh visual identity (the indigo "Prism" look, replacing the old
+blue TWP styling) — same features, new coat of paint, still in progress
+across the remaining screens.

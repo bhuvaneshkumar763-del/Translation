@@ -28,16 +28,16 @@ function toggleTranslationForTab(tabId: number): void {
  * Ported from the old background.js's resetBrowserAction: with
  * translateClickingOnce on, the popup is cleared so the toolbar-icon click
  * fires action.onClicked (toggle translation) instead; otherwise the click
- * opens whichever popup skin useOldPopup selects. forceShow bypasses the
- * translateClickingOnce carve-out so the "Show popup" context menu works
- * even in click-once mode.
+ * opens the toolbar popup. forceShow bypasses the translateClickingOnce
+ * carve-out so the "Show popup" context menu works even in click-once mode.
+ * (Gen 2 Session 3: the old-popup alternate skin and its useOldPopup
+ * config-driven swap were removed — one popup now, not two.)
  */
 function resetBrowserAction(forceShow = false): void {
   if (twpConfig.get('translateClickingOnce') === 'yes' && !forceShow) {
     void browser.action.setPopup({ popup: '' });
   } else {
-    const popupPath = twpConfig.get('useOldPopup') === 'yes' ? '/old-popup.html' : '/popup.html';
-    void browser.action.setPopup({ popup: browser.runtime.getURL(popupPath) });
+    void browser.action.setPopup({ popup: browser.runtime.getURL('/popup.html') });
   }
 }
 
@@ -138,7 +138,7 @@ export default defineBackground(() => {
         name === 'targetLanguage'
       ) {
         updatePageContextMenu();
-      } else if (name === 'useOldPopup' || name === 'translateClickingOnce') {
+      } else if (name === 'translateClickingOnce') {
         resetBrowserAction();
       }
     });
