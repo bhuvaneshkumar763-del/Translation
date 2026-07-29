@@ -86,8 +86,8 @@ class BingHelper {
           const abhText = responseText.slice(abhStartIndex + abhStartText.length - 1, abhEndIndex + 1);
           const abh = JSON.parse(abhText);
 
-          BingHelper.ig = igMatch[1];
-          BingHelper.iid = iidMatch[1];
+          BingHelper.ig = igMatch[1] ?? null;
+          BingHelper.iid = iidMatch[1] ?? null;
           BingHelper.key = abh[0];
           BingHelper.token = abh[1];
           BingHelper.notFound = false;
@@ -97,10 +97,13 @@ class BingHelper {
           resolve();
         }
       };
-      http.onerror = http.onabort = http.ontimeout = (e) => {
-        console.error(e);
-        resolve();
-      };
+      http.onerror =
+        http.onabort =
+        http.ontimeout =
+          (e) => {
+            console.error(e);
+            resolve();
+          };
     });
 
     BingHelper.promise.finally(() => {
@@ -339,7 +342,11 @@ class TtsService {
     }
 
     await Promise.all(promises);
-    await this.play(requests.map((text) => this.audios.get([targetLanguage, text].join(', '))).filter((a): a is HTMLAudioElement => !!a));
+    await this.play(
+      requests
+        .map((text) => this.audios.get([targetLanguage, text].join(', ')))
+        .filter((a): a is HTMLAudioElement => !!a),
+    );
   }
 
   private async play(audios: HTMLAudioElement | HTMLAudioElement[]): Promise<void> {

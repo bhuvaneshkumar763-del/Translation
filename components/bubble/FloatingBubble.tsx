@@ -1,9 +1,9 @@
-import { createSignal, onCleanup, onMount as solidOnMount, For } from 'solid-js';
-import type { PageTranslator } from '@/modules/page-translator/translateLoop';
-import { twpConfig } from '@/modules/config/store';
-import { sendMessage } from '@/modules/messaging/protocol';
-import { codeToLanguage } from '@/modules/languages';
+import { createSignal, For, onCleanup, onMount as solidOnMount } from 'solid-js';
 import type { Config } from '@/modules/config/schema';
+import { twpConfig } from '@/modules/config/store';
+import { codeToLanguage } from '@/modules/languages';
+import { sendMessage } from '@/modules/messaging/protocol';
+import type { PageTranslator } from '@/modules/page-translator/translateLoop';
 
 /**
  * The floating translate bubble (Immersive-Translate-style): a draggable
@@ -26,10 +26,41 @@ export interface FloatingBubbleProps {
 }
 
 const COMMON_TARGET_LANGS = [
-  'en', 'es', 'fr', 'de', 'pt', 'it', 'ru', 'ja', 'ko', 'zh-CN', 'zh-TW', 'vi', 'ar', 'hi', 'id', 'th',
+  'en',
+  'es',
+  'fr',
+  'de',
+  'pt',
+  'it',
+  'ru',
+  'ja',
+  'ko',
+  'zh-CN',
+  'zh-TW',
+  'vi',
+  'ar',
+  'hi',
+  'id',
+  'th',
 ];
 const COMMON_SOURCE_LANGS = [
-  'auto', 'en', 'zh-CN', 'zh-TW', 'ja', 'ko', 'vi', 'es', 'fr', 'de', 'pt', 'it', 'ru', 'ar', 'hi', 'id', 'th',
+  'auto',
+  'en',
+  'zh-CN',
+  'zh-TW',
+  'ja',
+  'ko',
+  'vi',
+  'es',
+  'fr',
+  'de',
+  'pt',
+  'it',
+  'ru',
+  'ar',
+  'hi',
+  'id',
+  'th',
 ];
 const PAGE_TRANSLATION_SERVICES: Array<Config['pageTranslatorService']> = ['google', 'bing', 'yandex'];
 const SERVICE_LABELS: Record<Config['pageTranslatorService'], string> = {
@@ -84,8 +115,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
   const savedSourceMap = twpConfig.get('fpSourceLangByHost') ?? {};
   const [sourceLanguage, setSourceLanguageSignal] = createSignal(savedSourceMap[props.hostname] ?? 'auto');
 
-  const targetLangOptions = () =>
-    uniq([targetLanguage(), ...twpConfig.get('targetLanguages'), ...COMMON_TARGET_LANGS]);
+  const targetLangOptions = () => uniq([targetLanguage(), ...twpConfig.get('targetLanguages'), ...COMMON_TARGET_LANGS]);
   const sourceLangOptions = () => uniq([sourceLanguage(), ...COMMON_SOURCE_LANGS]);
   const serviceOptions = () => {
     const enabled = twpConfig.get('enabledServices');
@@ -488,7 +518,16 @@ export function FloatingBubble(props: FloatingBubbleProps) {
           <svg class="ic ic-tr" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35c-.93-1.03-1.7-2.16-2.31-3.35h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z" />
           </svg>
-          <svg class="ic ic-or" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg
+            class="ic ic-or"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
             <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
             <path d="M3 4v4h4" />
           </svg>
@@ -545,7 +584,14 @@ export function FloatingBubble(props: FloatingBubbleProps) {
               </div>
             </div>
             <div class="row">
-              <div class="chip" classList={{ on: alwaysOn() }} tabindex="0" role="button" on:click={onAlwaysClick} on:keydown={onChipKeydown}>
+              <div
+                class="chip"
+                classList={{ on: alwaysOn() }}
+                tabindex="0"
+                role="button"
+                on:click={onAlwaysClick}
+                on:keydown={onChipKeydown}
+              >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M5 13l4 4L19 7" />
                 </svg>

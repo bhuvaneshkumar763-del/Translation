@@ -1,11 +1,11 @@
-import { twpConfig } from '../config/store';
 import type { Config } from '../config/schema';
-import { googleService } from './google';
+import { twpConfig } from '../config/store';
 import { bingService } from './bing';
-import { yandexService } from './yandex';
-import { deeplService, createDeeplFreeApiService } from './deepl';
+import { createDeeplFreeApiService, deeplService } from './deepl';
+import { googleService } from './google';
 import { createLibreService } from './libre';
 import type { TranslationProvider } from './types';
+import { yandexService } from './yandex';
 
 /**
  * All translation providers. `getSafeServiceByName` mirrors the old code's
@@ -76,7 +76,13 @@ export const translationService = {
   ): Promise<string[][]> {
     const service = getSafeServiceByName(serviceName);
     if (!service) return [];
-    return await service.translate(sourceLanguage, targetLanguage, sourceArray2d, dontSaveInPersistentCache, dontSortResults);
+    return await service.translate(
+      sourceLanguage,
+      targetLanguage,
+      sourceArray2d,
+      dontSaveInPersistentCache,
+      dontSortResults,
+    );
   },
 
   async translateText(
@@ -94,7 +100,7 @@ export const translationService = {
       sourceArray.map((text) => [text]),
       dontSaveInPersistentCache,
     );
-    return results.map((result) => result[0]);
+    return results.map((result) => result[0] ?? '');
   },
 
   async translateSingleText(
@@ -106,7 +112,12 @@ export const translationService = {
   ): Promise<string | undefined> {
     const service = getSafeServiceByName(serviceName);
     if (!service) return undefined;
-    const results = await service.translate(sourceLanguage, targetLanguage, [[originalText]], dontSaveInPersistentCache);
+    const results = await service.translate(
+      sourceLanguage,
+      targetLanguage,
+      [[originalText]],
+      dontSaveInPersistentCache,
+    );
     return results[0]?.[0];
   },
 

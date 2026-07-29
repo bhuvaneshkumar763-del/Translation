@@ -1,8 +1,8 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
-import { twpConfig } from '@/modules/config/store';
-import { sendMessage } from '@/modules/messaging/protocol';
-import { uiLanguages, codeToLanguage, fixTLanguageCode } from '@/modules/languages';
 import type { Config } from '@/modules/config/schema';
+import { twpConfig } from '@/modules/config/store';
+import { codeToLanguage, fixTLanguageCode, uiLanguages } from '@/modules/languages';
+import { sendMessage } from '@/modules/messaging/protocol';
 
 /**
  * The options page, ported from options/options.js + options.html.
@@ -92,11 +92,33 @@ function App() {
     bump();
   }
 
-  function addInArray(name: keyof Pick<Config, 'alwaysTranslateSites' | 'neverTranslateSites' | 'alwaysTranslateLangs' | 'neverTranslateLangs' | 'sitesToTranslateWhenHovering' | 'langsToTranslateWhenHovering'>, value: string): void {
+  function addInArray(
+    name: keyof Pick<
+      Config,
+      | 'alwaysTranslateSites'
+      | 'neverTranslateSites'
+      | 'alwaysTranslateLangs'
+      | 'neverTranslateLangs'
+      | 'sitesToTranslateWhenHovering'
+      | 'langsToTranslateWhenHovering'
+    >,
+    value: string,
+  ): void {
     const current = twpConfig.get(name) as string[];
     if (!current.includes(value)) void set(name, [...current, value] as never);
   }
-  function removeFromArray(name: keyof Pick<Config, 'alwaysTranslateSites' | 'neverTranslateSites' | 'alwaysTranslateLangs' | 'neverTranslateLangs' | 'sitesToTranslateWhenHovering' | 'langsToTranslateWhenHovering'>, value: string): void {
+  function removeFromArray(
+    name: keyof Pick<
+      Config,
+      | 'alwaysTranslateSites'
+      | 'neverTranslateSites'
+      | 'alwaysTranslateLangs'
+      | 'neverTranslateLangs'
+      | 'sitesToTranslateWhenHovering'
+      | 'langsToTranslateWhenHovering'
+    >,
+    value: string,
+  ): void {
     const current = twpConfig.get(name) as string[];
     void set(name, current.filter((v) => v !== value) as never);
   }
@@ -108,7 +130,10 @@ function App() {
     if (!current.includes(fixed)) void set('targetLanguages', [fixed, ...current].slice(0, 10));
   }
   function removeTargetLanguage(code: string): void {
-    void set('targetLanguages', twpConfig.get('targetLanguages').filter((c) => c !== code));
+    void set(
+      'targetLanguages',
+      twpConfig.get('targetLanguages').filter((c) => c !== code),
+    );
   }
 
   function addCustomDictEntry(key: string, value: string): void {
@@ -147,7 +172,9 @@ function App() {
   }
   function saveDeepl(): void {
     const others = twpConfig.get('customServices').filter((cs) => cs.name !== 'deepl_freeapi');
-    const next = deeplKey().trim() ? [...others, { name: 'deepl_freeapi' as const, apiKey: deeplKey().trim() }] : others;
+    const next = deeplKey().trim()
+      ? [...others, { name: 'deepl_freeapi' as const, apiKey: deeplKey().trim() }]
+      : others;
     void set('customServices', next);
   }
   function saveGoogleProxy(): void {
@@ -197,14 +224,22 @@ function App() {
         <Section title="General">
           <label class="row">
             <span>Interface language</span>
-            <select value={twpConfig.get('uiLanguage')} on:change={(e) => void set('uiLanguage', (e.currentTarget as HTMLSelectElement).value)}>
+            <select
+              value={twpConfig.get('uiLanguage')}
+              on:change={(e) => void set('uiLanguage', (e.currentTarget as HTMLSelectElement).value)}
+            >
               <option value="default">Match browser</option>
               <For each={uiLanguages}>{(code) => <option value={code}>{codeToLanguage(code, code)}</option>}</For>
             </select>
           </label>
           <label class="row">
             <span>Dark mode</span>
-            <select value={twpConfig.get('darkMode')} on:change={(e) => void set('darkMode', (e.currentTarget as HTMLSelectElement).value as Config['darkMode'])}>
+            <select
+              value={twpConfig.get('darkMode')}
+              on:change={(e) =>
+                void set('darkMode', (e.currentTarget as HTMLSelectElement).value as Config['darkMode'])
+              }
+            >
               <option value="auto">Match system</option>
               <option value="yes">Always on</option>
               <option value="no">Always off</option>
@@ -227,7 +262,12 @@ function App() {
             <span>Service</span>
             <select
               value={twpConfig.get('pageTranslatorService')}
-              on:change={(e) => void set('pageTranslatorService', (e.currentTarget as HTMLSelectElement).value as Config['pageTranslatorService'])}
+              on:change={(e) =>
+                void set(
+                  'pageTranslatorService',
+                  (e.currentTarget as HTMLSelectElement).value as Config['pageTranslatorService'],
+                )
+              }
             >
               <option value="google">Google</option>
               <option value="bing">Bing</option>
@@ -244,7 +284,10 @@ function App() {
                     checked={twpConfig.get('enabledServices').includes(s)}
                     on:change={() => {
                       const current = twpConfig.get('enabledServices');
-                      void set('enabledServices', current.includes(s) ? current.filter((x) => x !== s) : [...current, s]);
+                      void set(
+                        'enabledServices',
+                        current.includes(s) ? current.filter((x) => x !== s) : [...current, s],
+                      );
                     }}
                   />
                   {s}
@@ -297,7 +340,12 @@ function App() {
             <span>Service</span>
             <select
               value={twpConfig.get('textTranslatorService')}
-              on:change={(e) => void set('textTranslatorService', (e.currentTarget as HTMLSelectElement).value as Config['textTranslatorService'])}
+              on:change={(e) =>
+                void set(
+                  'textTranslatorService',
+                  (e.currentTarget as HTMLSelectElement).value as Config['textTranslatorService'],
+                )
+              }
             >
               <option value="google">Google</option>
               <option value="bing">Bing</option>
@@ -310,7 +358,9 @@ function App() {
             <input
               type="checkbox"
               checked={twpConfig.get('showTranslateSelectedButton') === 'yes'}
-              on:change={(e) => void set('showTranslateSelectedButton', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')}
+              on:change={(e) =>
+                void set('showTranslateSelectedButton', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
+              }
             />
             Show a button to translate selected text
           </label>
@@ -318,7 +368,12 @@ function App() {
             <input
               type="checkbox"
               checked={twpConfig.get('translateSelectedWhenPressTwice') === 'yes'}
-              on:change={(e) => void set('translateSelectedWhenPressTwice', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')}
+              on:change={(e) =>
+                void set(
+                  'translateSelectedWhenPressTwice',
+                  (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no',
+                )
+              }
             />
             Translate selected text by pressing Ctrl twice
           </label>
@@ -326,7 +381,12 @@ function App() {
             <input
               type="checkbox"
               checked={twpConfig.get('translateTextOverMouseWhenPressTwice') === 'yes'}
-              on:change={(e) => void set('translateTextOverMouseWhenPressTwice', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')}
+              on:change={(e) =>
+                void set(
+                  'translateTextOverMouseWhenPressTwice',
+                  (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no',
+                )
+              }
             />
             Translate text under the cursor by pressing Ctrl twice
           </label>
@@ -337,7 +397,9 @@ function App() {
             <input
               type="checkbox"
               checked={twpConfig.get('showOriginalTextWhenHovering') === 'yes'}
-              on:change={(e) => void set('showOriginalTextWhenHovering', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')}
+              on:change={(e) =>
+                void set('showOriginalTextWhenHovering', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
+              }
             />
             Show original text when hovering over translated text
           </label>
@@ -367,7 +429,9 @@ function App() {
             <input
               type="checkbox"
               checked={twpConfig.get('fpShowFloatingBubble') === 'yes'}
-              on:change={(e) => void set('fpShowFloatingBubble', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')}
+              on:change={(e) =>
+                void set('fpShowFloatingBubble', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
+              }
             />
             Show the floating translate bubble by default
           </label>
@@ -403,7 +467,12 @@ function App() {
             <span>Service</span>
             <select
               value={twpConfig.get('textToSpeechService')}
-              on:change={(e) => void set('textToSpeechService', (e.currentTarget as HTMLSelectElement).value as Config['textToSpeechService'])}
+              on:change={(e) =>
+                void set(
+                  'textToSpeechService',
+                  (e.currentTarget as HTMLSelectElement).value as Config['textToSpeechService'],
+                )
+              }
             >
               <option value="google">Google</option>
               <option value="bing">Bing</option>
@@ -435,7 +504,12 @@ function App() {
 
         <Section title="Custom dictionary">
           <div class="listRow addRow">
-            <input type="text" placeholder="word" value={dictKey()} on:input={(e) => setDictKey((e.currentTarget as HTMLInputElement).value)} />
+            <input
+              type="text"
+              placeholder="word"
+              value={dictKey()}
+              on:input={(e) => setDictKey((e.currentTarget as HTMLInputElement).value)}
+            />
             <input
               type="text"
               placeholder="replacement"
@@ -473,15 +547,30 @@ function App() {
           <div class="fieldGroup">
             <span>LibreTranslate (self-hosted)</span>
             <div class="row">
-              <input type="text" placeholder="Server URL" value={libreUrl()} on:input={(e) => setLibreUrl((e.currentTarget as HTMLInputElement).value)} />
-              <input type="text" placeholder="API key (optional)" value={libreKey()} on:input={(e) => setLibreKey((e.currentTarget as HTMLInputElement).value)} />
+              <input
+                type="text"
+                placeholder="Server URL"
+                value={libreUrl()}
+                on:input={(e) => setLibreUrl((e.currentTarget as HTMLInputElement).value)}
+              />
+              <input
+                type="text"
+                placeholder="API key (optional)"
+                value={libreKey()}
+                on:input={(e) => setLibreKey((e.currentTarget as HTMLInputElement).value)}
+              />
               <button on:click={saveLibre}>Save</button>
             </div>
           </div>
           <div class="fieldGroup">
             <span>DeepL API (free tier key)</span>
             <div class="row">
-              <input type="text" placeholder="API key" value={deeplKey()} on:input={(e) => setDeeplKey((e.currentTarget as HTMLInputElement).value)} />
+              <input
+                type="text"
+                placeholder="API key"
+                value={deeplKey()}
+                on:input={(e) => setDeeplKey((e.currentTarget as HTMLInputElement).value)}
+              />
               <button on:click={saveDeepl}>Save</button>
             </div>
           </div>
@@ -504,7 +593,9 @@ function App() {
             <input
               type="checkbox"
               checked={twpConfig.get('enableDiskCache') === 'yes'}
-              on:change={(e) => void set('enableDiskCache', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')}
+              on:change={(e) =>
+                void set('enableDiskCache', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
+              }
             />
             Cache translations on disk (persists across restarts, reduces repeat requests)
           </label>

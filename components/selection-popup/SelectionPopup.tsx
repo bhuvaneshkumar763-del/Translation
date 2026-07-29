@@ -1,8 +1,8 @@
-import { createSignal, onCleanup, onMount as solidOnMount, For, Show } from 'solid-js';
-import { twpConfig } from '@/modules/config/store';
-import { onMessage, sendMessage } from '@/modules/messaging/protocol';
-import { codeToLanguage, fixTLanguageCode, isRtlLanguage } from '@/modules/languages';
+import { createSignal, For, onCleanup, Show, onMount as solidOnMount } from 'solid-js';
 import type { Config } from '@/modules/config/schema';
+import { twpConfig } from '@/modules/config/store';
+import { codeToLanguage, fixTLanguageCode, isRtlLanguage } from '@/modules/languages';
+import { onMessage, sendMessage } from '@/modules/messaging/protocol';
 import { getPlatformInfo } from '@/modules/platform/platformInfo';
 import {
   detectTextLanguage,
@@ -59,7 +59,9 @@ export function SelectionPopup(props: SelectionPopupProps) {
   const [translatedText, setTranslatedText] = createSignal('');
   const [expanded, setExpanded] = createSignal(twpConfig.get('expandPanelTranslateSelectedText') === 'yes');
   const [service, setService] = createSignal(twpConfig.get('textTranslatorService'));
-  const [targetLanguage, setTargetLanguageSignal] = createSignal(twpConfig.get('targetLanguageTextTranslation') ?? 'en');
+  const [targetLanguage, setTargetLanguageSignal] = createSignal(
+    twpConfig.get('targetLanguageTextTranslation') ?? 'en',
+  );
   const [listening, setListening] = createSignal<'original' | 'translated' | null>(null);
   const [isEditable, setIsEditable] = createSignal(false);
 
@@ -212,7 +214,8 @@ export function SelectionPopup(props: SelectionPopupProps) {
     const originalLanguage = props.getOriginalLanguage();
     const neverLang = twpConfig.get('neverTranslateLangs').includes(originalLanguage);
     if (!(always || (!neverSite && !neverLang))) return false;
-    if (twpConfig.get('dontShowIfPageLangIsTargetLang') === 'yes' && originalLanguage === targetLanguage()) return false;
+    if (twpConfig.get('dontShowIfPageLangIsTargetLang') === 'yes' && originalLanguage === targetLanguage())
+      return false;
     if (twpConfig.get('dontShowIfPageLangIsUnknown') === 'yes' && originalLanguage === 'und') return false;
     return true;
   }
@@ -326,7 +329,8 @@ export function SelectionPopup(props: SelectionPopupProps) {
       const info = readSelection();
       if (!info?.text) return;
       const el = info.element;
-      const canFocus = el.nodeType === Node.TEXT_NODE ? !!(el.parentNode as HTMLElement | null)?.focus : !!(el as HTMLElement).focus;
+      const canFocus =
+        el.nodeType === Node.TEXT_NODE ? !!(el.parentNode as HTMLElement | null)?.focus : !!(el as HTMLElement).focus;
       if (!canFocus) return;
       if (info.isInputElement && (info.element as HTMLInputElement).readOnly) return;
       const result = await sendMessage('translateSingleText', {
@@ -482,7 +486,12 @@ export function SelectionPopup(props: SelectionPopupProps) {
                   <div
                     class="chip"
                     classList={{ on: code === targetLanguage() }}
-                    title={codeToLanguage(code, twpConfig.get('uiLanguage') !== 'default' ? twpConfig.get('uiLanguage') : browser.i18n.getUILanguage())}
+                    title={codeToLanguage(
+                      code,
+                      twpConfig.get('uiLanguage') !== 'default'
+                        ? twpConfig.get('uiLanguage')
+                        : browser.i18n.getUILanguage(),
+                    )}
                     on:click={() => onTargetLanguageClick(code)}
                   >
                     {code}

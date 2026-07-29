@@ -1,6 +1,6 @@
 import type { Browser } from 'wxt/browser';
-import { Service, type TranslationProvider } from './types';
 import { onMessage, sendMessage } from '../messaging/protocol';
+import { Service, type TranslationProvider } from './types';
 
 /**
  * TypeScript port of the DeepL integrations from background/translationService.js.
@@ -48,24 +48,22 @@ class DeepLBridgeService implements TranslationProvider {
     });
   }
 
-  async translate(
-    _sourceLanguage: string,
-    targetLanguage: string,
-    sourceArray2d: string[][],
-  ): Promise<string[][]> {
+  async translate(_sourceLanguage: string, targetLanguage: string, sourceArray2d: string[][]): Promise<string[][]> {
     if (targetLanguage === 'pt') targetLanguage = 'pt-BR';
     else if (targetLanguage === 'no') targetLanguage = 'nb';
     else if (targetLanguage === 'zh-CN') targetLanguage = 'zh-Hans';
     else if (targetLanguage === 'zh-TW') targetLanguage = 'zh';
 
-    const text = sourceArray2d[0][0];
+    const text = sourceArray2d[0]?.[0] ?? '';
 
     if (this.deeplTab?.id) {
       const existing = await browser.tabs.get(this.deeplTab.id).catch(() => null);
       if (existing?.id != null) {
-        const response = await sendMessage('translateTextWithDeepL', { text, targetLanguage }, { tabId: existing.id, frameId: 0 }).catch(
-          () => '',
-        );
+        const response = await sendMessage(
+          'translateTextWithDeepL',
+          { text, targetLanguage },
+          { tabId: existing.id, frameId: 0 },
+        ).catch(() => '');
         return [[response]];
       }
     }
@@ -83,14 +81,17 @@ export function createDeeplFreeApiService(apiKey: string): Service {
   return new (class extends Service {
     constructor() {
       super('deepl', 'https://api-free.deepl.com/v2/translate', 'POST', {
-        cbTransformRequest: (sourceArray) => sourceArray[0],
+        cbTransformRequest: (sourceArray) => sourceArray[0] ?? '',
         cbParseResponse: (response: { translations: Array<{ text: string; detected_source_language: string }> }) => [
-          { text: response.translations[0].text, detectedLanguage: response.translations[0].detected_source_language },
+          {
+            text: response.translations[0]?.text ?? '',
+            detectedLanguage: response.translations[0]?.detected_source_language ?? null,
+          },
         ],
         cbTransformResponse: (result) => [result],
         cbGetRequestBody: (sourceLanguage, targetLanguage, requests) => {
           const params = new URLSearchParams();
-          params.append('text', requests[0].originalText);
+          params.append('text', requests[0]?.originalText ?? '');
           if (targetLanguage === 'pt') targetLanguage = 'pt-BR';
           else if (targetLanguage === 'no') targetLanguage = 'nb';
           else if (targetLanguage.startsWith('zh-')) targetLanguage = 'zh';

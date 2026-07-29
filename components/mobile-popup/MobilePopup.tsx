@@ -1,8 +1,8 @@
-import { createSignal, onCleanup, onMount as solidOnMount, For, Show } from 'solid-js';
-import { twpConfig } from '@/modules/config/store';
-import { onMessage, sendMessage } from '@/modules/messaging/protocol';
-import { codeToLanguage, fixTLanguageCode, getLanguageList, isRtlLanguage } from '@/modules/languages';
+import { createSignal, For, onCleanup, Show, onMount as solidOnMount } from 'solid-js';
 import type { Config } from '@/modules/config/schema';
+import { twpConfig } from '@/modules/config/store';
+import { codeToLanguage, fixTLanguageCode, getLanguageList, isRtlLanguage } from '@/modules/languages';
+import { onMessage, sendMessage } from '@/modules/messaging/protocol';
 import type { PageTranslator } from '@/modules/page-translator/translateLoop';
 import { getPlatformInfo } from '@/modules/platform/platformInfo';
 
@@ -123,7 +123,9 @@ export function MobilePopup(props: MobilePopupProps) {
   function onServiceCycleClick(): void {
     lastInteraction();
     const services: Config['pageTranslatorService'][] = ['google', 'bing', 'yandex'];
-    const enabled = twpConfig.get('enabledServices').filter((s): s is Config['pageTranslatorService'] => services.includes(s as never));
+    const enabled = twpConfig
+      .get('enabledServices')
+      .filter((s): s is Config['pageTranslatorService'] => services.includes(s as never));
     const next = enabled[(enabled.indexOf(service()) + 1) % enabled.length] ?? enabled[0];
     if (!next) return;
     setServiceSignal(next);
@@ -176,7 +178,10 @@ export function MobilePopup(props: MobilePopupProps) {
   }
   function toggleShowSelectedButton(): void {
     lastInteraction();
-    void twpConfig.set('showTranslateSelectedButton', twpConfig.get('showTranslateSelectedButton') === 'yes' ? 'no' : 'yes');
+    void twpConfig.set(
+      'showTranslateSelectedButton',
+      twpConfig.get('showTranslateSelectedButton') === 'yes' ? 'no' : 'yes',
+    );
   }
   function toggleKeepOnScreen(): void {
     lastInteraction();
@@ -196,7 +201,8 @@ export function MobilePopup(props: MobilePopupProps) {
   };
   const langTarget = () => codeToLanguage(targetLanguage(), effectiveUiLanguage());
   const recentLangs = () => twpConfig.get('targetLanguages');
-  const allLangs = () => Object.entries(getLanguageList(effectiveUiLanguage())).sort((a, b) => a[1].localeCompare(b[1]));
+  const allLangs = () =>
+    Object.entries(getLanguageList(effectiveUiLanguage())).sort((a, b) => a[1].localeCompare(b[1]));
 
   return (
     <>
@@ -236,7 +242,12 @@ export function MobilePopup(props: MobilePopupProps) {
       `}</style>
 
       <Show when={visible()}>
-        <div class="bar" classList={{ top: position() === 'top', bottom: position() !== 'top' }} ref={barRef} dir={isRtlLanguage(effectiveUiLanguage()) ? 'rtl' : 'ltr'}>
+        <div
+          class="bar"
+          classList={{ top: position() === 'top', bottom: position() !== 'top' }}
+          ref={barRef}
+          dir={isRtlLanguage(effectiveUiLanguage()) ? 'rtl' : 'ltr'}
+        >
           <div class="question">
             {pageState() === 'original'
               ? `Translate from ${langOriginal()} to ${langTarget()}?`
@@ -244,7 +255,9 @@ export function MobilePopup(props: MobilePopupProps) {
           </div>
           <select value={targetLanguage()} on:change={onLanguageChange} on:click={(e) => e.stopPropagation()}>
             <optgroup label="Recent">
-              <For each={recentLangs()}>{(code) => <option value={code}>{codeToLanguage(code, effectiveUiLanguage())}</option>}</For>
+              <For each={recentLangs()}>
+                {(code) => <option value={code}>{codeToLanguage(code, effectiveUiLanguage())}</option>}
+              </For>
             </optgroup>
             <optgroup label="All">
               <For each={allLangs()}>{([code, name]) => <option value={code}>{name}</option>}</For>

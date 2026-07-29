@@ -4,11 +4,20 @@
 > loses, or changes a feature that a regular user would notice, this file
 > gets updated too. If you're reading this, it should reflect what the
 > extension actually does *today*, not what it used to do.
+>
+> **Heads up if you're reading this mid-2026:** the extension is partway
+> through being rebuilt into "Prism" — a new name, a new look, and (soon) an
+> AI-powered translation engine instead of just plugging into Google/Bing/
+> etc. Some of what's described below (the two popup styles, the plain MT
+> providers) is *current* but will change over the next few sessions — see
+> `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` for what's
+> already landed vs. still planned. This file describes today's build, not
+> the destination.
 
 ## The one-sentence version
 
-It's a browser add-on (a "extension") that translates webpages for you,
-right there on the page, without you having to copy-paste anything into
+**Prism** is a browser add-on (an "extension") that translates webpages for
+you, right there on the page, without you having to copy-paste anything into
 Google Translate.
 
 ## Who is this for

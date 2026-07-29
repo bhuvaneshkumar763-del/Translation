@@ -1,10 +1,10 @@
-import { createSignal, onCleanup, onMount as solidOnMount, For, Show } from 'solid-js';
-import { twpConfig } from '@/modules/config/store';
-import { sendMessage } from '@/modules/messaging/protocol';
-import { fixTLanguageCode, isRtlLanguage } from '@/modules/languages';
+import { createSignal, For, onCleanup, Show, onMount as solidOnMount } from 'solid-js';
 import type { Config } from '@/modules/config/schema';
-import { getIsTranslatingSelected } from '@/modules/selection/state';
+import { twpConfig } from '@/modules/config/store';
+import { fixTLanguageCode, isRtlLanguage } from '@/modules/languages';
+import { sendMessage } from '@/modules/messaging/protocol';
 import type { PageLanguageState } from '@/modules/page-translator/translateLoop';
+import { getIsTranslatingSelected } from '@/modules/selection/state';
 
 /**
  * "Hover over foreign text to see a live translation" tooltip, ported from
@@ -15,8 +15,27 @@ import type { PageLanguageState } from '@/modules/page-translator/translateLoop'
  */
 
 const HTML_TAGS_INLINE_TEXT = new Set([
-  'a', 'abbr', 'acronym', 'b', 'bdo', 'big', 'cite', 'dfn', 'em', 'i', 'label',
-  'q', 's', 'small', 'span', 'strong', 'sub', 'sup', 'u', 'tt', 'var',
+  'a',
+  'abbr',
+  'acronym',
+  'b',
+  'bdo',
+  'big',
+  'cite',
+  'dfn',
+  'em',
+  'i',
+  'label',
+  'q',
+  's',
+  'small',
+  'span',
+  'strong',
+  'sub',
+  'sup',
+  'u',
+  'tt',
+  'var',
 ]);
 const HTML_TAGS_NO_TRANSLATE = new Set(['title', 'script', 'style', 'textarea', 'svg', 'template', 'math']);
 const INVALID_TEXT_RE = /^[0-9!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?\s]*$/;
@@ -26,7 +45,11 @@ function isValidText(text: string): boolean {
 }
 
 const SERVICE_LABELS: Record<Config['textTranslatorService'], string> = {
-  google: 'G', bing: 'B', yandex: 'Y', deepl: 'D', libre: 'L',
+  google: 'G',
+  bing: 'B',
+  yandex: 'Y',
+  deepl: 'D',
+  libre: 'L',
 };
 const PAGE_TEXT_SERVICES: Array<Config['textTranslatorService']> = ['google', 'bing', 'yandex', 'deepl'];
 
@@ -47,7 +70,9 @@ export function TranslatedTextTooltip(props: TranslatedTextTooltipProps) {
   const [service, setService] = createSignal(
     twpConfig.get('textTranslatorService') === 'deepl' ? 'google' : twpConfig.get('textTranslatorService'),
   );
-  const [targetLanguage, setTargetLanguageSignal] = createSignal(twpConfig.get('targetLanguageTextTranslation') ?? 'en');
+  const [targetLanguage, setTargetLanguageSignal] = createSignal(
+    twpConfig.get('targetLanguageTextTranslation') ?? 'en',
+  );
   const retranslateRef: { current: (() => void) | null } = { current: null };
 
   function findTranslatableAncestor(node: Element): { text: string; el: Element } | null {
@@ -269,7 +294,11 @@ export function TranslatedTextTooltip(props: TranslatedTextTooltipProps) {
           <div class="head">
             <For each={twpConfig.get('targetLanguages').slice(0, 3)}>
               {(code) => (
-                <div class="chip" classList={{ on: code === targetLanguage() }} on:click={() => onTargetLangClick(code)}>
+                <div
+                  class="chip"
+                  classList={{ on: code === targetLanguage() }}
+                  on:click={() => onTargetLangClick(code)}
+                >
                   {code}
                 </div>
               )}

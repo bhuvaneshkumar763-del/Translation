@@ -1,4 +1,4 @@
-import { onMount, createSignal, Show } from 'solid-js';
+import { createSignal, onMount, Show } from 'solid-js';
 import { twpConfig } from '@/modules/config/store';
 import './App.css';
 

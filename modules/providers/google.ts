@@ -1,5 +1,5 @@
+import { Service, type ServiceSingleResult, type TranslationInfo, Utils } from './types';
 import { XMLHttpRequestShim } from './xhrShim';
-import { Service, Utils, type ServiceSingleResult, type TranslationInfo } from './types';
 
 /**
  * TypeScript port of GoogleHelper_v2 + the `googleService` instance from
@@ -58,7 +58,7 @@ async function findAuth(): Promise<void> {
       if (http.responseText && http.responseText.length > 1) {
         const result = http.responseText.match(/['"]x-goog-api-key['"]\s*:\s*['"](\w{39})['"]/i);
         if (result && result.length === 2) {
-          translateAuth = result[1];
+          translateAuth = result[1] ?? alternativeKey;
           authNotFound = false;
         } else {
           authNotFound = true;
@@ -70,11 +70,14 @@ async function findAuth(): Promise<void> {
       }
       resolve();
     };
-    http.onerror = http.onabort = http.ontimeout = (e) => {
-      console.error(e);
-      translateAuth = alternativeKey;
-      resolve();
-    };
+    http.onerror =
+      http.onabort =
+      http.ontimeout =
+        (e) => {
+          console.error(e);
+          translateAuth = alternativeKey;
+          resolve();
+        };
   });
 
   authPromise.finally(() => {
@@ -183,8 +186,8 @@ function cbTransformResponse(result: string, dontSortResults: boolean): string[]
   const finalResultArray: string[] = [];
   indexes.forEach((targetIndex, j) => {
     finalResultArray[targetIndex] = finalResultArray[targetIndex]
-      ? `${finalResultArray[targetIndex]} ${resultArray[j]}`
-      : resultArray[j];
+      ? `${finalResultArray[targetIndex]} ${resultArray[j] ?? ''}`
+      : (resultArray[j] ?? '');
   });
   return finalResultArray;
 }
@@ -226,7 +229,13 @@ class GoogleService extends Service {
     await findAuth();
     if (!translateAuth) return [];
 
-    return await super.translate(sourceLanguage, targetLanguage, sourceArray2d, dontSaveInPersistentCache, dontSortResults);
+    return await super.translate(
+      sourceLanguage,
+      targetLanguage,
+      sourceArray2d,
+      dontSaveInPersistentCache,
+      dontSortResults,
+    );
   }
 }
 

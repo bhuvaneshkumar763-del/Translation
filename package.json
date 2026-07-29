@@ -1,6 +1,6 @@
 {
-  "name": "twp-fullpage",
-  "description": "TWP - FullPage (modified) — WXT + TypeScript + Solid rewrite",
+  "name": "prism-translate",
+  "description": "Prism — AI Page Translator (WXT + TypeScript + Solid)",
   "private": true,
   "version": "11.0.0",
   "type": "module",
@@ -12,6 +12,11 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "node tests/e2e/run.mjs",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
@@ -21,11 +26,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.6",
     "@wxt-dev/i18n": "^0.2.6",
     "@wxt-dev/module-solid": "^1.1.4",
+    "playwright": "^1.62.0",
     "typescript": "^5.9.3",
     "vite": "^8.1.5",
-    "web-ext": "^10.5.0",
-    "wxt": "^0.20.27"
+    "vitest": "^4.1.10",
+    "wxt": "^0.21.2"
   }
 }

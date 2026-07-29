@@ -1,16 +1,27 @@
 # Working on this repo — read this first
 
-This is **TWP - FullPage (modified)**, a browser extension that translates
-web pages in place. It's a heavily-patched fork of the open-source
-"Traduzir Páginas Web" (TWP) extension, currently mid-way through a full
-rewrite: the original ~16,000-line vanilla-JS/`importScripts` codebase is
-being replaced with **WXT + TypeScript + Solid.js**, module by module, with
-100% feature parity as the hard requirement (nothing dropped without saying
-so explicitly, in writing, in this repo).
+This is **Prism — AI Page Translator** (npm package `prism-translate`), a
+browser extension that translates web pages in place. It started life as a
+heavily-patched fork of the open-source "Traduzir Páginas Web" (TWP)
+extension, and has been through two rewrites:
 
-If you're picking this up cold: skim this file, then `CHANGELOG.md` (the
-phase-by-phase rewrite history and what's known to still be missing), then
-look at `git log` on this branch for the granular story.
+1. **Skeleton rewrite** (complete): the original ~16,000-line vanilla-JS/
+   `importScripts` codebase was replaced with **WXT + TypeScript + Solid.js**,
+   module by module, with 100% feature parity as the hard requirement.
+2. **Gen 2 rebuild** (in progress): a deliberate, radical departure from
+   "the old product in new clothes" — new brand ("Prism"), an LLM-driven
+   translation engine (not just another MT provider in a dropdown — the
+   actual recognize/send/check/speed mechanics change), and a full UI
+   redesign. This is a **multi-session plan**, one ~5-hour session per part;
+   see `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` for
+   the full session breakdown, what's done, and what's next. **Read that
+   file's session map before starting any Gen 2 work** — it tells you
+   exactly which session you're in and what it depends on.
+
+If you're picking this up cold: skim this file, then the Gen 2 plan file
+above (for where the rebuild stands), then `CHANGELOG.md` and `ROADMAP.md`
+for the older skeleton-rewrite history, then `git log` on this branch for
+the granular story.
 
 **Branch:** all work happens on `claude/twp-extension-jp8iyh`. Don't create a
 new branch for this project unless explicitly asked to.
@@ -42,8 +53,43 @@ windows) were still deferred; that section is now stale/historical — they
 were completed afterward. Trust the code and `git log`, not that file's
 "deliberately not carried over" list, for current status.
 
+**Gen 2 rebuild — Session 1 (Foundation) is complete.** What landed:
+- Rebrand: `wxt.config.ts` name/description/homepage, new icon set
+  (`public/icons/icon-{32,64,128}.png` + `public/icons/icon.svg` source,
+  a faceted-prism mark on an indigo→violet gradient).
+- `styles/tokens.css`: shared design tokens (color incl. dark mode, spacing,
+  radius, shadow, type scale). **Not yet consumed by any surface** — that
+  starts in Session 3 (popup/bubble) and continues through Session 5. Don't
+  assume a CSS file importing it exists yet; check first.
+- Real test harness: Vitest (`modules/**/*.test.ts`, run via `npm test`) and
+  a formalized Playwright E2E smoke suite (`tests/e2e/run.mjs`, run via
+  `npm run test:e2e`) replacing the old ad-hoc scratchpad-script pattern.
+- CI (`.github/workflows/ci.yml`): typecheck → unit tests → build → E2E,
+  on every push/PR.
+- `npm audit`: 18 vulnerabilities → 0. Root cause was an unused direct
+  `web-ext` devDependency (nothing imported it; `wxt` already bundles its
+  own `web-ext-run` for Firefox builds) plus an outdated `wxt` — removed the
+  former, bumped the latter to 0.21.2.
+- Biome added for lint/format (`npm run lint` / `lint:fix`). Auto-fixed
+  formatting/import-order across the repo; **~115 pre-existing lint findings
+  remain untouched on purpose** (mostly `a11y/useButtonType` in
+  popup/old-popup/options/bubble — files Sessions 3-4 rewrite anyway, so
+  fixing them now would be wasted work). Not part of the CI gate yet.
+
+See the plan file's Session 1 section for the full task list and rationale.
+One consequence worth knowing: bumping `wxt` regenerated `.wxt/tsconfig.json`
+with `noUncheckedIndexedAccess: true` newly biting in ~20 places across
+`modules/providers/*`, `modules/config/store.ts`, `modules/languages/index.ts`
+— all fixed with real (not `!`-suppressed) undefined handling, see git log
+for the commit. If a future `wxt` bump does this again, same drill: don't
+suppress, handle the real possibly-empty-array/match case.
+
 ## Known gaps / next things to look at
 
+- **`entrypoints/old-popup/` still exists.** It's slated for full deletion
+  in Session 3 of the Gen 2 plan (a "radically different product" shouldn't
+  ship two competing popup designs) — don't restyle it, don't invest in it,
+  it's going away.
 - **Release notes aren't wired into the new options page.** `showReleaseNotes`
   is still a config key (`modules/config/schema.ts`) but nothing renders
   release notes anywhere in the new UI. The old `options/release-notes/en.html`
@@ -52,8 +98,6 @@ were completed afterward. Trust the code and `git log`, not that file's
   d7da732:options/release-notes/en.html` or earlier).
 - **Toolbar-icon translated/original state swap** (the old
   `icon-32-translated.png`) isn't wired up — cosmetic, not urgent.
-- No automated test suite exists. See Testing below for how verification has
-  actually been done instead.
 
 ## Repo layout
 
@@ -91,6 +135,10 @@ components/            Solid components shared across bubble/popups/options
   bubble/, hover-tooltip/, mobile-popup/, selection-popup/
 
 public/_locales/       i18n message bundles (via @wxt-dev/i18n)
+public/icons/           icon-{32,64,128}.png + icon.svg (source) — Prism mark
+styles/tokens.css       shared design tokens (Gen 2) — see "Current status"
+tests/e2e/run.mjs       formalized Playwright smoke suite (`npm run test:e2e`)
+.github/workflows/ci.yml  compile → test → build → e2e, on push/PR
 wxt.config.ts          manifest permissions/commands/action/options_ui —
                        WXT does NOT auto-infer most of this from folder
                        structure, it must be declared explicitly
@@ -132,47 +180,40 @@ wxt.config.ts          manifest permissions/commands/action/options_ui —
 
 ## Testing
 
-There's no automated test suite. Verification loop used throughout this
-rewrite:
-1. `npx tsc --noEmit` — must be clean.
-2. `npx wxt build` — must succeed; check the output file list for expected
-   entrypoint HTML/JS/CSS.
-3. **After adding a new entrypoint folder**, run `npx wxt prepare` — this
+Real test harness as of Session 1 of the Gen 2 plan — run all of this before
+calling anything done:
+1. `npm run compile` (`tsc --noEmit`) — must be clean.
+2. `npm test` (Vitest, `modules/**/*.test.ts`) — unit tests for
+   framework-agnostic logic. Add tests here for new pure-logic modules.
+3. `npm run build` / `npm run build:firefox` — must succeed; check the
+   output file list for expected entrypoint HTML/JS/CSS.
+4. **After adding a new entrypoint folder**, run `npx wxt prepare` — this
    regenerates `.wxt/types/paths.d.ts`'s `PublicPath` union, which
    `browser.runtime.getURL()`'s typed overload depends on. `tsc` will fail
    on the new URL string otherwise, even though `wxt build` itself picks up
    new entrypoints fine without it.
-4. Headless-Chromium smoke tests via Playwright, run ad hoc (no committed
-   spec files — there's no test runner wired into `package.json` yet).
-   Pattern that works in this environment:
-   ```js
-   import { chromium } from 'playwright';
-   const context = await chromium.launchPersistentContext(userDataDir, {
-     headless: true,
-     executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', // check the actual versioned dir under /opt/pw-browsers
-     args: [
-       `--disable-extensions-except=/home/user/Translation/.output/chrome-mv3`,
-       `--load-extension=/home/user/Translation/.output/chrome-mv3`,
-       '--headless=new',
-     ],
-   });
-   let worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
-   const extId = worker.url().split('/')[2];
-   // then context.newPage().goto(`chrome-extension://${extId}/<entrypoint>.html`)
-   // and/or worker.evaluate(() => chrome.action.getPopup({})) to inspect background state directly
-   ```
-   `playwright` isn't a project dependency — install it ad hoc into the
-   scratchpad dir (`npm install playwright --no-save`) rather than adding it
-   to `package.json` unless a real test suite is being set up.
-   Known limitation: opening an entrypoint HTML file as a plain tab (rather
-   than as a real toolbar popup) means `chrome.tabs.query({active:true})`
-   resolves to *that tab itself*, not whatever page you meant to test
-   against — fine for structural/no-exception checks, not for a true
-   round-trip through a content script. Real popup-window simulation isn't
-   well supported by Playwright's extension testing today.
-5. For a real content-script round trip, serve a local static test page
-   (`python3 -m http.server`) rather than relying on outbound network
-   access, which isn't reliable in this environment.
+5. `npm run test:e2e` (`tests/e2e/run.mjs`) — headless-Chromium Playwright
+   smoke test, loads the real unpacked `.output/chrome-mv3` build and opens
+   every entrypoint HTML file as a tab, asserting no page errors. Requires
+   `npm run build` first.
+
+   **Non-obvious gotcha, cost real debugging time to find**: Playwright's
+   `headless: true` launches `chrome-headless-shell`, a stripped binary with
+   **no extension support at all** — `--load-extension` silently does
+   nothing and no service worker ever registers. The fix (already in
+   `tests/e2e/run.mjs`, don't rediscover it): launch with `headless: false`
+   but pass `'--headless=new'` as an arg — this makes Playwright pick the
+   full Chrome binary while Chrome itself still runs headless.
+6. All of the above run in CI (`.github/workflows/ci.yml`) on every push/PR.
+7. For a real content-script round trip (not just structural/no-exception
+   checks — `chrome.tabs.query({active:true})` in a plain Playwright tab
+   resolves to that tab itself, not a page under test), serve a local static
+   test page (`python3 -m http.server`) rather than relying on outbound
+   network access, which isn't reliable in this environment.
+8. `npm run lint` (Biome) — not yet part of the CI gate; pre-existing debt
+   tracked, see "Current status" above. Run `npm run lint:fix` for new code
+   you write, but don't feel obligated to fix unrelated pre-existing
+   findings while working on something else.
 
 A real bug was caught by exactly this loop: a Solid.js native `<select>`
 bound via `value={signal()}` silently stopped resetting after a user pick,

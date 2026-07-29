@@ -1,9 +1,9 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
-import { twpConfig } from '@/modules/config/store';
-import { sendMessage } from '@/modules/messaging/protocol';
-import { codeToLanguage, fixTLanguageCode, getLanguageList } from '@/modules/languages';
-import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 import type { Config } from '@/modules/config/schema';
+import { twpConfig } from '@/modules/config/store';
+import { codeToLanguage, fixTLanguageCode, getLanguageList } from '@/modules/languages';
+import { sendMessage } from '@/modules/messaging/protocol';
+import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 import './App.css';
 
 /**
@@ -81,7 +81,9 @@ function App() {
     }
 
     if (id != null) {
-      const state = await sendMessage('getCurrentPageLanguageState', undefined, mainFrameTarget(id)).catch(() => 'original' as const);
+      const state = await sendMessage('getCurrentPageLanguageState', undefined, mainFrameTarget(id)).catch(
+        () => 'original' as const,
+      );
       if (state === 'translated') {
         await sendMessage('translatePage', { targetLanguage: target }, pageActionTarget(id)).catch(() => {});
       }
@@ -89,7 +91,8 @@ function App() {
     close();
   }
 
-  const allLangs = () => Object.entries(getLanguageList(effectiveUiLanguage())).sort((a, b) => a[1].localeCompare(b[1]));
+  const allLangs = () =>
+    Object.entries(getLanguageList(effectiveUiLanguage())).sort((a, b) => a[1].localeCompare(b[1]));
 
   return (
     <Show when={ready()} fallback={<div class="loading">Loading…</div>}>
@@ -100,11 +103,17 @@ function App() {
 
         <div class="field">
           <label for="selectOriginalLanguage">Select the original website language</label>
-          <select id="selectOriginalLanguage" value={sourceLanguage()} on:change={(e) => setSourceLanguage((e.currentTarget as HTMLSelectElement).value)}>
+          <select
+            id="selectOriginalLanguage"
+            value={sourceLanguage()}
+            on:change={(e) => setSourceLanguage((e.currentTarget as HTMLSelectElement).value)}
+          >
             <optgroup label="Recents">
               <option value="auto">Auto-detect</option>
               <Show when={detectedTabLanguage() !== 'und'}>
-                <option value={detectedTabLanguage()}>{codeToLanguage(detectedTabLanguage(), effectiveUiLanguage())}</option>
+                <option value={detectedTabLanguage()}>
+                  {codeToLanguage(detectedTabLanguage(), effectiveUiLanguage())}
+                </option>
               </Show>
             </optgroup>
             <optgroup label="All">
@@ -136,7 +145,9 @@ function App() {
           <select
             id="pageTranslatorService"
             value={service()}
-            on:change={(e) => setService((e.currentTarget as HTMLSelectElement).value as Config['pageTranslatorService'])}
+            on:change={(e) =>
+              setService((e.currentTarget as HTMLSelectElement).value as Config['pageTranslatorService'])
+            }
           >
             <option value="google">Google</option>
             <option value="bing">Bing</option>
@@ -151,7 +162,9 @@ function App() {
           <select
             id="dontSortResults"
             value={dontSortResults()}
-            on:change={(e) => setDontSortResults((e.currentTarget as HTMLSelectElement).value as Config['dontSortResults'])}
+            on:change={(e) =>
+              setDontSortResults((e.currentTarget as HTMLSelectElement).value as Config['dontSortResults'])
+            }
           >
             <option value="no">No</option>
             <option value="yes">Yes</option>

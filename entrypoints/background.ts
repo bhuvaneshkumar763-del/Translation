@@ -1,9 +1,9 @@
-import { twpConfig } from '@/modules/config/store';
-import { translationService, initProviderRegistry } from '@/modules/providers/registry';
-import { initTextToSpeech } from '@/modules/tts/offscreenClient';
 import { translationCache } from '@/modules/cache/translationCache';
+import { twpConfig } from '@/modules/config/store';
 import { onMessage, sendMessage } from '@/modules/messaging/protocol';
 import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
+import { initProviderRegistry, translationService } from '@/modules/providers/registry';
+import { initTextToSpeech } from '@/modules/tts/offscreenClient';
 
 /**
  * Background: config init + the message router for translation (Google/
@@ -65,9 +65,19 @@ function updatePageContextMenu(pageLanguageState: 'original' | 'translated' = 'o
 
   if (twpConfig.get('showTranslatePageContextMenu') === 'yes') {
     if (twpConfig.get('enableIframePageTranslation') === 'yes') {
-      browser.contextMenus.create({ id: CONTEXT_MENU_IDS.translatePage, title, contexts: ['page', 'frame'], documentUrlPatterns });
+      browser.contextMenus.create({
+        id: CONTEXT_MENU_IDS.translatePage,
+        title,
+        contexts: ['page', 'frame'],
+        documentUrlPatterns,
+      });
     } else {
-      browser.contextMenus.create({ id: CONTEXT_MENU_IDS.translatePage, title, contexts: ['page'], documentUrlPatterns });
+      browser.contextMenus.create({
+        id: CONTEXT_MENU_IDS.translatePage,
+        title,
+        contexts: ['page'],
+        documentUrlPatterns,
+      });
     }
   }
 
@@ -99,7 +109,11 @@ function updateActionContextMenu(): void {
   browser.contextMenus.remove(CONTEXT_MENU_IDS.neverTranslate).catch(() => {});
   browser.contextMenus.remove(CONTEXT_MENU_IDS.moreOptions).catch(() => {});
   browser.contextMenus.create({ id: CONTEXT_MENU_IDS.showPopup, title: 'Show popup', contexts: ['action'] });
-  browser.contextMenus.create({ id: CONTEXT_MENU_IDS.neverTranslate, title: 'Never translate this site', contexts: ['action'] });
+  browser.contextMenus.create({
+    id: CONTEXT_MENU_IDS.neverTranslate,
+    title: 'Never translate this site',
+    contexts: ['action'],
+  });
   browser.contextMenus.create({ id: CONTEXT_MENU_IDS.moreOptions, title: 'More options', contexts: ['action'] });
 }
 
@@ -118,7 +132,11 @@ export default defineBackground(() => {
 
     twpConfig.onChanged((name) => {
       if (name === 'showTranslateSelectedContextMenu') updateSelectedTextContextMenu();
-      else if (name === 'showTranslatePageContextMenu' || name === 'enableIframePageTranslation' || name === 'targetLanguage') {
+      else if (
+        name === 'showTranslatePageContextMenu' ||
+        name === 'enableIframePageTranslation' ||
+        name === 'targetLanguage'
+      ) {
         updatePageContextMenu();
       } else if (name === 'useOldPopup' || name === 'translateClickingOnce') {
         resetBrowserAction();
@@ -187,7 +205,13 @@ export default defineBackground(() => {
   });
 
   onMessage('translateHTML', async (message) => {
-    const { translationService: serviceName, sourceLanguage, targetLanguage, sourceArray2d, dontSortResults } = message.data;
+    const {
+      translationService: serviceName,
+      sourceLanguage,
+      targetLanguage,
+      sourceArray2d,
+      dontSortResults,
+    } = message.data;
     return await translationService.translateHTML(
       serviceName,
       sourceLanguage,

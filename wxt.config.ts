@@ -1,20 +1,13 @@
 import { defineConfig } from 'wxt';
 
 // See https://wxt.dev/api/config.html
-//
-// This mirrors the permissions/commands/action/options_ui block of the
-// vanilla-JS extension's manifest.json (repo root, being phased out module by
-// module — see /root/.claude/plans/now-like-i-want-cozy-zebra.md). Values
-// that depend on where assets end up post-bundling (web_accessible_resources,
-// icon paths) are placeholders until Phase 1+ moves those assets under
-// public/ and entrypoints/.
 export default defineConfig({
   modules: ['@wxt-dev/module-solid', '@wxt-dev/i18n/module'],
   manifest: {
     default_locale: 'en',
-    name: 'TWP - FullPage (modified)',
-    description: 'THIS EXTENSION IS FOR BETA TESTING',
-    homepage_url: 'https://github.com/FilipePS/Traduzir-paginas-web',
+    name: 'Prism — AI Page Translator',
+    description: 'Translate any webpage in place, with an AI engine that understands context instead of just words.',
+    homepage_url: 'https://github.com/bhuvaneshkumar763-del/Translation',
     minimum_chrome_version: '116',
     icons: {
       32: '/icons/icon-32.png',

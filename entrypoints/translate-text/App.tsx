@@ -1,8 +1,8 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
-import { twpConfig } from '@/modules/config/store';
-import { sendMessage } from '@/modules/messaging/protocol';
-import { codeToLanguage, fixTLanguageCode, isRtlLanguage } from '@/modules/languages';
 import type { Config } from '@/modules/config/schema';
+import { twpConfig } from '@/modules/config/store';
+import { codeToLanguage, fixTLanguageCode, isRtlLanguage } from '@/modules/languages';
+import { sendMessage } from '@/modules/messaging/protocol';
 import './App.css';
 
 /**
@@ -35,7 +35,9 @@ function App() {
   const [ready, setReady] = createSignal(false);
   const [translatedText, setTranslatedText] = createSignal('');
   const [service, setServiceSignal] = createSignal(twpConfig.get('textTranslatorService'));
-  const [targetLanguage, setTargetLanguageSignal] = createSignal(twpConfig.get('targetLanguageTextTranslation') ?? 'en');
+  const [targetLanguage, setTargetLanguageSignal] = createSignal(
+    twpConfig.get('targetLanguageTextTranslation') ?? 'en',
+  );
   const [listening, setListening] = createSignal<'original' | 'translated' | null>(null);
   const [copied, setCopied] = createSignal(false);
 
@@ -136,7 +138,15 @@ function App() {
             🔊
           </button>
         </div>
-        <div class="textbox" id="origText" ref={origTextRef} contentEditable spellcheck={false} dir="auto" on:input={onOrigTextInput} />
+        <div
+          class="textbox"
+          id="origText"
+          ref={origTextRef}
+          contentEditable
+          spellcheck={false}
+          dir="auto"
+          on:input={onOrigTextInput}
+        />
         <div class="textbox translated" dir={isRtlLanguage(targetLanguage()) ? 'rtl' : 'ltr'}>
           {translatedText()}
         </div>
@@ -145,7 +155,11 @@ function App() {
           <div class="langs">
             <For each={twpConfig.get('targetLanguages').slice(0, 3)}>
               {(code) => (
-                <button class="chip" classList={{ on: code === targetLanguage() }} on:click={() => onTargetLanguageClick(code)}>
+                <button
+                  class="chip"
+                  classList={{ on: code === targetLanguage() }}
+                  on:click={() => onTargetLanguageClick(code)}
+                >
                   {codeToLanguage(code, effectiveUiLanguage())}
                 </button>
               )}
@@ -154,7 +168,12 @@ function App() {
           <div class="services">
             <For each={serviceOptions()}>
               {(s) => (
-                <button class="chip" classList={{ on: s === service() }} title={SERVICE_LABELS[s]} on:click={() => onServiceClick(s)}>
+                <button
+                  class="chip"
+                  classList={{ on: s === service() }}
+                  title={SERVICE_LABELS[s]}
+                  on:click={() => onServiceClick(s)}
+                >
                   {s.charAt(0).toUpperCase()}
                 </button>
               )}

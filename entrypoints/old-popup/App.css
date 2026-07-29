@@ -84,7 +84,10 @@ button {
   color: var(--twp-accent);
   font-size: 13px;
   cursor: pointer;
-  transition: background-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 button:hover {
   background: #f4f7ff;
@@ -147,7 +150,7 @@ select {
   color: black;
 }
 
-input[type='checkbox'] {
+input[type="checkbox"] {
   accent-color: var(--twp-accent);
 }
 
@@ -171,7 +174,10 @@ input[type='checkbox'] {
   color: inherit;
   border: 1px solid rgba(37, 99, 235, 0.35);
   border-radius: 10px;
-  transition: box-shadow 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+  transition:
+    box-shadow 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.12s ease;
 }
 .improveBtn:hover {
   border-color: var(--twp-accent);

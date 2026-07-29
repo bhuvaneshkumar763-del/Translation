@@ -1,5 +1,5 @@
-import { XMLHttpRequestShim } from './xhrShim';
 import { translationCache } from '../cache/translationCache';
+import { XMLHttpRequestShim } from './xhrShim';
 
 /**
  * TypeScript port of the shared `Service` base class + `Utils` from
@@ -214,7 +214,11 @@ export class Service {
     return [requests, currentTranslationsInProgress];
   }
 
-  private async makeRequestOnce(sourceLanguage: string, targetLanguage: string, requests: TranslationInfo[]): Promise<any> {
+  private async makeRequestOnce(
+    sourceLanguage: string,
+    targetLanguage: string,
+    requests: TranslationInfo[],
+  ): Promise<any> {
     return await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequestShim();
       xhr.open(
@@ -244,10 +248,13 @@ export class Service {
         }
         resolve(xhr.response);
       };
-      xhr.onerror = xhr.onabort = xhr.ontimeout = (event) => {
-        console.error(event);
-        reject(new Error('XHR failed'));
-      };
+      xhr.onerror =
+        xhr.onabort =
+        xhr.ontimeout =
+          (event) => {
+            console.error(event);
+            reject(new Error('XHR failed'));
+          };
 
       xhr.send(this.callbacks.cbGetRequestBody?.(sourceLanguage, targetLanguage, requests));
     });
@@ -279,7 +286,11 @@ export class Service {
     dontSaveInPersistentCache = false,
     dontSortResults = false,
   ): Promise<string[][]> {
-    const [requests, currentTranslationsInProgress] = await this.getRequests(sourceLanguage, targetLanguage, sourceArray2d);
+    const [requests, currentTranslationsInProgress] = await this.getRequests(
+      sourceLanguage,
+      targetLanguage,
+      sourceArray2d,
+    );
 
     // Cap concurrent in-flight requests. Firing every chunk at once (full-page
     // mode can produce dozens) tends to trip rate limiters, which then forces
@@ -294,6 +305,12 @@ export class Service {
         const results = this.callbacks.cbParseResponse(response);
         request.forEach((info, idx) => {
           const result = results[idx];
+          if (!result) {
+            // Provider returned fewer results than pieces sent — a malformed/
+            // truncated response, not something to silently paper over.
+            info.status = 'error';
+            return;
+          }
           info.detectedLanguage = result.detectedLanguage || 'und';
           info.translatedText = result.text;
           info.status = 'complete';
@@ -324,7 +341,8 @@ export class Service {
           let completed = 0;
           const pump = () => {
             while (inFlight < MAX_CONCURRENT && cursor < requests.length) {
-              const request = requests[cursor++];
+              // Safe: cursor < requests.length is checked by the while condition.
+              const request = requests[cursor++]!;
               inFlight++;
               handleRequest(request).then(() => {
                 inFlight--;
@@ -343,6 +361,8 @@ export class Service {
       swKeepAlive.release();
     }
 
-    return currentTranslationsInProgress.map((info) => this.callbacks.cbTransformResponse(info.translatedText ?? '', dontSortResults));
+    return currentTranslationsInProgress.map((info) =>
+      this.callbacks.cbTransformResponse(info.translatedText ?? '', dontSortResults),
+    );
   }
 }

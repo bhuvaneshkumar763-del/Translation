@@ -1,6 +1,6 @@
 import { storage, type WxtStorageItem } from 'wxt/utils/storage';
-import { defaultConfig, legacyStorageKeyByConfigKey, type Config, type ConfigKey } from './schema';
 import { fixTLanguageCode } from '../languages';
+import { type Config, type ConfigKey, defaultConfig, legacyStorageKeyByConfigKey } from './schema';
 
 /**
  * TypeScript port of the vanilla-JS extension's `twpConfig` (lib/config.js).
@@ -75,7 +75,7 @@ async function initConfig(): Promise<void> {
 
   if (typeof browser !== 'undefined' && browser.i18n?.getAcceptLanguages) {
     const acceptedLanguages = await browser.i18n.getAcceptLanguages();
-    for (let lang of acceptedLanguages) {
+    for (const lang of acceptedLanguages) {
       if (state.targetLanguages.length >= 3) break;
       const fixed = fixTLanguageCode(lang);
       if (fixed && !state.targetLanguages.includes(fixed)) {
@@ -94,13 +94,10 @@ async function initConfig(): Promise<void> {
   while (state.targetLanguages.length > 3) state.targetLanguages.pop();
 
   if (!state.targetLanguage || !state.targetLanguages.includes(state.targetLanguage)) {
-    state.targetLanguage = state.targetLanguages[0];
+    state.targetLanguage = state.targetLanguages[0] ?? null;
   }
-  if (
-    !state.targetLanguageTextTranslation ||
-    !state.targetLanguages.includes(state.targetLanguageTextTranslation)
-  ) {
-    state.targetLanguageTextTranslation = state.targetLanguages[0];
+  if (!state.targetLanguageTextTranslation || !state.targetLanguages.includes(state.targetLanguageTextTranslation)) {
+    state.targetLanguageTextTranslation = state.targetLanguages[0] ?? null;
   }
 
   state.targetLanguages = state.targetLanguages.map((lang) => fixTLanguageCode(lang) ?? lang);
@@ -110,11 +107,11 @@ async function initConfig(): Promise<void> {
   state.targetLanguageTextTranslation =
     fixTLanguageCode(state.targetLanguageTextTranslation) ?? state.targetLanguageTextTranslation;
 
-  if (!state.targetLanguages.includes(state.targetLanguage)) {
-    state.targetLanguage = state.targetLanguages[0];
+  if (!state.targetLanguage || !state.targetLanguages.includes(state.targetLanguage)) {
+    state.targetLanguage = state.targetLanguages[0] ?? null;
   }
-  if (!state.targetLanguages.includes(state.targetLanguageTextTranslation)) {
-    state.targetLanguageTextTranslation = state.targetLanguages[0];
+  if (!state.targetLanguageTextTranslation || !state.targetLanguages.includes(state.targetLanguageTextTranslation)) {
+    state.targetLanguageTextTranslation = state.targetLanguages[0] ?? null;
   }
 
   await Promise.all([
@@ -297,7 +294,9 @@ export const twpConfig = {
       pageTranslationServices.includes(sv as Config['pageTranslatorService']),
     );
     const index = enabled.indexOf(state.pageTranslatorService);
-    const next = index !== -1 ? enabled[index + 1] ?? enabled[0] : enabled[0];
+    // Falls back to 'google' only if every page-translation service has been
+    // disabled — otherwise enabled[0] always exists.
+    const next = (index !== -1 ? (enabled[index + 1] ?? enabled[0]) : enabled[0]) ?? 'google';
     await twpConfig.set('pageTranslatorService', next);
     return next;
   },

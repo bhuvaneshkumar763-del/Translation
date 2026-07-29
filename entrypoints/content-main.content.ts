@@ -1,14 +1,14 @@
 import { render } from 'solid-js/web';
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
-import { twpConfig } from '@/modules/config/store';
-import { onMessage, sendMessage } from '@/modules/messaging/protocol';
-import { createPageTranslator, type PageTranslator } from '@/modules/page-translator/translateLoop';
-import { createOriginalLanguageTracker, shouldAutoTranslateOnLoad } from '@/modules/page-translator/originalLanguage';
 import { FloatingBubble } from '@/components/bubble/FloatingBubble';
-import { SelectionPopup } from '@/components/selection-popup/SelectionPopup';
 import { OriginalTextTooltip } from '@/components/hover-tooltip/OriginalTextTooltip';
 import { TranslatedTextTooltip } from '@/components/hover-tooltip/TranslatedTextTooltip';
 import { MobilePopup } from '@/components/mobile-popup/MobilePopup';
+import { SelectionPopup } from '@/components/selection-popup/SelectionPopup';
+import { twpConfig } from '@/modules/config/store';
+import { onMessage, sendMessage } from '@/modules/messaging/protocol';
+import { createOriginalLanguageTracker, shouldAutoTranslateOnLoad } from '@/modules/page-translator/originalLanguage';
+import { createPageTranslator, type PageTranslator } from '@/modules/page-translator/translateLoop';
 
 /**
  * The page-translation content script — wires modules/page-translator's
@@ -36,7 +36,9 @@ export default defineContentScript({
     // Main frame already knows its own hostname; subframes ask background
     // for the *tab's* hostname (not their own, possibly cross-origin, one) —
     // always/never-translate-site rules are meant to key off the outer page.
-    const hostname = isMainFrame ? location.hostname : await sendMessage('getTabHostName', undefined).catch(() => location.hostname);
+    const hostname = isMainFrame
+      ? location.hostname
+      : await sendMessage('getTabHostName', undefined).catch(() => location.hostname);
 
     const pageTranslator = createPageTranslator({
       getService: () => twpConfig.get('pageTranslatorService'),
@@ -156,7 +158,7 @@ export default defineContentScript({
 
 function bubbleVisibleForHost(host: string): boolean {
   const map = twpConfig.get('fpBubbleByHost');
-  if (Object.prototype.hasOwnProperty.call(map, host)) return map[host] !== 'no';
+  if (Object.hasOwn(map, host)) return map[host] !== 'no';
   return twpConfig.get('fpShowFloatingBubble') !== 'no';
 }
 

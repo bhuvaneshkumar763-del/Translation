@@ -1,8 +1,8 @@
 import { allLanguagesNames } from './allLanguagesNames';
-import { supportedLanguages, type ServiceName } from './supportedLanguages';
+import { type ServiceName, supportedLanguages } from './supportedLanguages';
 
-export { allLanguagesNames, supportedLanguages };
 export type { ServiceName };
+export { allLanguagesNames, supportedLanguages };
 
 /**
  * Ported from lib/languages.js's `twpLang` object. Only the config-independent
@@ -37,7 +37,7 @@ export function fixUILanguageCode(langCode: unknown): string | undefined {
   let code = langCode;
   if (!uiLanguages.includes(code)) {
     if (code.includes('-')) {
-      code = code.split('-')[0];
+      code = code.split('-')[0] ?? code;
       if (!uiLanguages.includes(code)) {
         return getReplacer(langCode);
       }
@@ -66,7 +66,7 @@ export function fixTLanguageCode(langCode: unknown): string | undefined {
   let code = langCode;
   if (!targetLanguages.includes(code)) {
     if (code.includes('-')) {
-      code = code.split('-')[0];
+      code = code.split('-')[0] ?? code;
       if (!targetLanguages.includes(code)) {
         return undefined;
       }

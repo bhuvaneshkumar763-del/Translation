@@ -37,7 +37,10 @@ async function translate(text: string, targetLanguage: string): Promise<string> 
 
     const startTime = performance.now();
     function checkResult(oldValue: string | null) {
-      if (performance.now() - startTime > 2400 || (targetTextarea!.textContent && targetTextarea!.textContent !== oldValue)) {
+      if (
+        performance.now() - startTime > 2400 ||
+        (targetTextarea!.textContent && targetTextarea!.textContent !== oldValue)
+      ) {
         resolve(targetTextarea!.textContent ?? '');
         return;
       }
@@ -96,7 +99,7 @@ export default defineContentScript({
       const [rawTargetLanguage, rawText] = location.hash.split('!#');
       location.hash = '';
 
-      const targetLanguage = decodeURIComponent(rawTargetLanguage.substring(2)) || 'en';
+      const targetLanguage = decodeURIComponent((rawTargetLanguage ?? '').substring(2)) || 'en';
       const text = decodeURIComponent(rawText ?? '');
 
       setTimeout(() => {

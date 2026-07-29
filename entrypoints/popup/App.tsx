@@ -1,10 +1,10 @@
-import { createSignal, createResource, For, Show, onMount } from 'solid-js';
+import { createResource, createSignal, For, onMount, Show } from 'solid-js';
 import type { Browser } from 'wxt/browser';
-import { twpConfig } from '@/modules/config/store';
-import { sendMessage } from '@/modules/messaging/protocol';
-import { codeToLanguage, fixTLanguageCode } from '@/modules/languages';
-import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 import type { Config } from '@/modules/config/schema';
+import { twpConfig } from '@/modules/config/store';
+import { codeToLanguage, fixTLanguageCode } from '@/modules/languages';
+import { sendMessage } from '@/modules/messaging/protocol';
+import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 import './App.css';
 
 /**
@@ -105,7 +105,8 @@ function App() {
   function toggleAlwaysTranslateLang(): void {
     const lang = originalLanguage();
     if (lang === 'und') return;
-    if (!twpConfig.get('alwaysTranslateLangs').includes(lang)) void twpConfig.addLangToAlwaysTranslate(lang, hostname());
+    if (!twpConfig.get('alwaysTranslateLangs').includes(lang))
+      void twpConfig.addLangToAlwaysTranslate(lang, hostname());
     else void twpConfig.removeLangFromAlwaysTranslate(lang);
   }
   function toggleAlwaysTranslateSite(): void {
@@ -129,28 +130,36 @@ function App() {
   function toggleFloatingBubble(): void {
     const host = hostname();
     const map = { ...(twpConfig.get('fpBubbleByHost') ?? {}) };
-    const currentlyVisible = Object.prototype.hasOwnProperty.call(map, host)
+    const currentlyVisible = Object.hasOwn(map, host)
       ? map[host] !== 'no'
       : twpConfig.get('fpShowFloatingBubble') !== 'no';
     map[host] = currentlyVisible ? 'no' : 'yes';
     void twpConfig.set('fpBubbleByHost', map);
   }
   function toggleShowTranslateSelectedButton(): void {
-    void twpConfig.set('showTranslateSelectedButton', twpConfig.get('showTranslateSelectedButton') === 'yes' ? 'no' : 'yes');
+    void twpConfig.set(
+      'showTranslateSelectedButton',
+      twpConfig.get('showTranslateSelectedButton') === 'yes' ? 'no' : 'yes',
+    );
   }
   function toggleShowOriginalOnHover(): void {
-    void twpConfig.set('showOriginalTextWhenHovering', twpConfig.get('showOriginalTextWhenHovering') === 'yes' ? 'no' : 'yes');
+    void twpConfig.set(
+      'showOriginalTextWhenHovering',
+      twpConfig.get('showOriginalTextWhenHovering') === 'yes' ? 'no' : 'yes',
+    );
   }
   function toggleShowTranslatedOnHoverSite(): void {
     const host = hostname();
     if (!host) return;
-    if (!twpConfig.get('sitesToTranslateWhenHovering').includes(host)) void twpConfig.addSiteToTranslateWhenHovering(host);
+    if (!twpConfig.get('sitesToTranslateWhenHovering').includes(host))
+      void twpConfig.addSiteToTranslateWhenHovering(host);
     else void twpConfig.removeSiteFromTranslateWhenHovering(host);
   }
   function toggleShowTranslatedOnHoverLang(): void {
     const lang = originalLanguage();
     if (lang === 'und') return;
-    if (!twpConfig.get('langsToTranslateWhenHovering').includes(lang)) void twpConfig.addLangToTranslateWhenHovering(lang);
+    if (!twpConfig.get('langsToTranslateWhenHovering').includes(lang))
+      void twpConfig.addLangToTranslateWhenHovering(lang);
     else void twpConfig.removeLangFromTranslateWhenHovering(lang);
   }
   function openInGoogleTranslate(): void {
@@ -175,13 +184,20 @@ function App() {
     void browser.tabs.create({ url: browser.runtime.getURL('/translate-document.html') });
   }
 
-  const [langResource] = createResource(originalLanguage, (lang) => codeToLanguage(lang === 'und' ? 'en' : lang, effectiveUiLanguage()));
+  const [langResource] = createResource(originalLanguage, (lang) =>
+    codeToLanguage(lang === 'und' ? 'en' : lang, effectiveUiLanguage()),
+  );
 
   return (
     <Show when={ready()} fallback={<div class="loading">Loading…</div>}>
       <div class="popup">
         <div class="topRow">
-          <button class="langBtn" classList={{ active: pageState() === 'original' }} on:click={toggleTranslate} disabled={busy()}>
+          <button
+            class="langBtn"
+            classList={{ active: pageState() === 'original' }}
+            on:click={toggleTranslate}
+            disabled={busy()}
+          >
             {pageState() === 'original' ? `Original (${langResource() ?? '…'})` : 'Show original'}
           </button>
           <For each={twpConfig.get('targetLanguages').slice(0, 3)}>
@@ -207,19 +223,27 @@ function App() {
         <div class="checks">
           <Show when={originalLanguage() !== 'und' && originalLanguage() !== targetLanguage()}>
             <label class="check">
-              <input type="checkbox" checked={twpConfig.get('alwaysTranslateLangs').includes(originalLanguage())} on:change={toggleAlwaysTranslateLang} />
+              <input
+                type="checkbox"
+                checked={twpConfig.get('alwaysTranslateLangs').includes(originalLanguage())}
+                on:change={toggleAlwaysTranslateLang}
+              />
               Always translate from {langResource()}
             </label>
           </Show>
           <label class="check">
-            <input type="checkbox" checked={twpConfig.get('alwaysTranslateSites').includes(hostname())} on:change={toggleAlwaysTranslateSite} />
+            <input
+              type="checkbox"
+              checked={twpConfig.get('alwaysTranslateSites').includes(hostname())}
+              on:change={toggleAlwaysTranslateSite}
+            />
             Always translate this site
           </label>
           <label class="check bubbleToggle">
             <input
               type="checkbox"
               checked={
-                Object.prototype.hasOwnProperty.call(twpConfig.get('fpBubbleByHost') ?? {}, hostname())
+                Object.hasOwn(twpConfig.get('fpBubbleByHost') ?? {}, hostname())
                   ? twpConfig.get('fpBubbleByHost')[hostname()] !== 'no'
                   : twpConfig.get('fpShowFloatingBubble') !== 'no'
               }

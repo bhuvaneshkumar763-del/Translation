@@ -1,7 +1,7 @@
-import { createSignal, onCleanup, onMount as solidOnMount, Show } from 'solid-js';
+import { createSignal, onCleanup, Show, onMount as solidOnMount } from 'solid-js';
 import { twpConfig } from '@/modules/config/store';
-import { getIsTranslatingSelected } from '@/modules/selection/state';
 import type { PageTranslator } from '@/modules/page-translator/translateLoop';
+import { getIsTranslatingSelected } from '@/modules/selection/state';
 
 /**
  * "Hover over translated text to see the original" tooltip, ported from

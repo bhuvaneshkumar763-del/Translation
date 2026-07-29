@@ -10,14 +10,14 @@ export function createLibreService(url: string, apiKey: string): Service {
   return new (class extends Service {
     constructor() {
       super('libre', url, 'POST', {
-        cbTransformRequest: (sourceArray) => sourceArray[0],
+        cbTransformRequest: (sourceArray) => sourceArray[0] ?? '',
         cbParseResponse: (response: { translatedText: string; detectedLanguage: { language: string } }) => [
           { text: response.translatedText, detectedLanguage: response.detectedLanguage.language },
         ],
         cbTransformResponse: (result) => [result],
         cbGetRequestBody: (sourceLanguage: string, targetLanguage: string, requests: TranslationInfo[]) => {
           const params = new URLSearchParams();
-          params.append('q', requests[0].originalText);
+          params.append('q', requests[0]?.originalText ?? '');
           params.append('source', sourceLanguage);
           params.append('target', targetLanguage);
           params.append('format', 'text');

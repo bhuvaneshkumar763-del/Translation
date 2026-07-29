@@ -1,9 +1,9 @@
-import { createSignal, For, Show, onMount } from 'solid-js';
-import { twpConfig } from '@/modules/config/store';
-import { sendMessage } from '@/modules/messaging/protocol';
-import { codeToLanguage, fixTLanguageCode, getLanguageList } from '@/modules/languages';
-import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
+import { createSignal, For, onMount, Show } from 'solid-js';
 import type { Config } from '@/modules/config/schema';
+import { twpConfig } from '@/modules/config/store';
+import { codeToLanguage, fixTLanguageCode, getLanguageList } from '@/modules/languages';
+import { sendMessage } from '@/modules/messaging/protocol';
+import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 import './App.css';
 
 /**
@@ -177,16 +177,23 @@ function App() {
         break;
       }
       case 'showTranslateSelectedButton':
-        await twpConfig.set('showTranslateSelectedButton', twpConfig.get('showTranslateSelectedButton') === 'yes' ? 'no' : 'yes');
+        await twpConfig.set(
+          'showTranslateSelectedButton',
+          twpConfig.get('showTranslateSelectedButton') === 'yes' ? 'no' : 'yes',
+        );
         window.close();
         break;
       case 'showOriginalTextWhenHovering':
-        await twpConfig.set('showOriginalTextWhenHovering', twpConfig.get('showOriginalTextWhenHovering') === 'yes' ? 'no' : 'yes');
+        await twpConfig.set(
+          'showOriginalTextWhenHovering',
+          twpConfig.get('showOriginalTextWhenHovering') === 'yes' ? 'no' : 'yes',
+        );
         window.close();
         break;
       case 'showTranslatedWhenHoveringThisSite':
         if (host) {
-          if (!twpConfig.get('sitesToTranslateWhenHovering').includes(host)) await twpConfig.addSiteToTranslateWhenHovering(host);
+          if (!twpConfig.get('sitesToTranslateWhenHovering').includes(host))
+            await twpConfig.addSiteToTranslateWhenHovering(host);
           else await twpConfig.removeSiteFromTranslateWhenHovering(host);
         }
         window.close();
@@ -194,7 +201,8 @@ function App() {
       case 'showTranslatedWhenHoveringThisLang': {
         const lang = originalTabLanguage();
         if (lang !== 'und') {
-          if (!twpConfig.get('langsToTranslateWhenHovering').includes(lang)) await twpConfig.addLangToTranslateWhenHovering(lang);
+          if (!twpConfig.get('langsToTranslateWhenHovering').includes(lang))
+            await twpConfig.addLangToTranslateWhenHovering(lang);
           else await twpConfig.removeLangFromTranslateWhenHovering(lang);
         }
         window.close();
@@ -224,8 +232,10 @@ function App() {
     bump();
   }
 
-  const allLangs = () => Object.entries(getLanguageList(effectiveUiLanguage())).sort((a, b) => a[1].localeCompare(b[1]));
-  const showAlwaysTranslateCheckbox = () => originalTabLanguage() !== 'und' && originalTabLanguage() !== cfg('targetLanguage');
+  const allLangs = () =>
+    Object.entries(getLanguageList(effectiveUiLanguage())).sort((a, b) => a[1].localeCompare(b[1]));
+  const showAlwaysTranslateCheckbox = () =>
+    originalTabLanguage() !== 'und' && originalTabLanguage() !== cfg('targetLanguage');
 
   const externalSiteLabel = () => (service() === 'yandex' ? 'Open on Yandex Translator' : 'Open in Google Translate');
   const checkMark = (active: boolean) => (active ? '✔ ' : '');
@@ -276,7 +286,9 @@ function App() {
                   disabled={!showAlwaysTranslateCheckbox()}
                   on:change={(e) => toggleAlwaysTranslateThisLang((e.currentTarget as HTMLInputElement).checked)}
                 />
-                <label for="cbAlwaysTranslateThisLang">Always translate from {codeToLanguage(originalTabLanguage(), effectiveUiLanguage())}</label>
+                <label for="cbAlwaysTranslateThisLang">
+                  Always translate from {codeToLanguage(originalTabLanguage(), effectiveUiLanguage())}
+                </label>
               </div>
             </Show>
           </Show>
@@ -319,18 +331,20 @@ function App() {
                   </option>
                 </Show>
                 <option value="showTranslateSelectedButton">
-                  {checkMark(cfg('showTranslateSelectedButton') === 'yes')}Show the button to translate the selected text
+                  {checkMark(cfg('showTranslateSelectedButton') === 'yes')}Show the button to translate the selected
+                  text
                 </option>
                 <option value="showOriginalTextWhenHovering">
                   {checkMark(cfg('showOriginalTextWhenHovering') === 'yes')}Show original text when hovering
                 </option>
                 <option value="showTranslatedWhenHoveringThisSite">
-                  {checkMark(cfg('sitesToTranslateWhenHovering').includes(hostname()))}Show translation when hovering over this site
+                  {checkMark(cfg('sitesToTranslateWhenHovering').includes(hostname()))}Show translation when hovering
+                  over this site
                 </option>
                 <Show when={originalTabLanguage() !== 'und'}>
                   <option value="showTranslatedWhenHoveringThisLang">
-                    {checkMark(cfg('langsToTranslateWhenHovering').includes(originalTabLanguage()))}Show translation when hovering
-                    over websites in {codeToLanguage(originalTabLanguage(), effectiveUiLanguage())}
+                    {checkMark(cfg('langsToTranslateWhenHovering').includes(originalTabLanguage()))}Show translation
+                    when hovering over websites in {codeToLanguage(originalTabLanguage(), effectiveUiLanguage())}
                   </option>
                 </Show>
                 <option value="translateInExternalSite">{externalSiteLabel()}</option>
@@ -345,7 +359,7 @@ function App() {
             type="checkbox"
             id="cbShowFloatingBubble"
             checked={
-              Object.prototype.hasOwnProperty.call(cfg('fpBubbleByHost') ?? {}, hostname())
+              Object.hasOwn(cfg('fpBubbleByHost') ?? {}, hostname())
                 ? cfg('fpBubbleByHost')[hostname()] !== 'no'
                 : cfg('fpShowFloatingBubble') !== 'no'
             }

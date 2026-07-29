@@ -1,6 +1,6 @@
 import { parseDocument } from 'htmlparser2';
+import { Service, type ServiceSingleResult, type TranslationInfo, Utils } from './types';
 import { XMLHttpRequestShim } from './xhrShim';
-import { Service, Utils, type ServiceSingleResult, type TranslationInfo } from './types';
 
 /**
  * TypeScript port of BingHelper + the `bingService` instance from
@@ -54,10 +54,13 @@ async function findAuth(): Promise<void> {
       }
       resolve();
     };
-    http.onerror = http.onabort = http.ontimeout = (e) => {
-      console.error(e);
-      resolve();
-    };
+    http.onerror =
+      http.onabort =
+      http.ontimeout =
+        (e) => {
+          console.error(e);
+          resolve();
+        };
   });
 
   authPromise.finally(() => {
@@ -78,9 +81,11 @@ function cbTransformRequest(sourceArray: string[]): string {
     .join('');
 }
 
-function cbParseResponse(response: Array<{ translations: Array<{ text: string }>; detectedLanguage?: { language: string } }>): ServiceSingleResult[] {
+function cbParseResponse(
+  response: Array<{ translations: Array<{ text: string }>; detectedLanguage?: { language: string } }>,
+): ServiceSingleResult[] {
   return response.map((r) => ({
-    text: r.translations[0].text,
+    text: r.translations[0]?.text ?? '',
     detectedLanguage: r.detectedLanguage?.language ?? null,
   }));
 }
@@ -144,14 +149,19 @@ const BING_LANG_REPLACEMENTS: Array<{ search: string; replace: string }> = [
 
 class BingService extends Service {
   constructor() {
-    super('bing', 'https://api-edge.cognitive.microsofttranslator.com/translate?api-version=3.0&includeSentenceLength=true', 'POST', {
-      cbTransformRequest,
-      cbParseResponse,
-      cbTransformResponse,
-      cbGetExtraParameters,
-      cbGetRequestBody,
-      cbGetExtraHeaders,
-    });
+    super(
+      'bing',
+      'https://api-edge.cognitive.microsofttranslator.com/translate?api-version=3.0&includeSentenceLength=true',
+      'POST',
+      {
+        cbTransformRequest,
+        cbParseResponse,
+        cbTransformResponse,
+        cbGetExtraParameters,
+        cbGetRequestBody,
+        cbGetExtraHeaders,
+      },
+    );
   }
 
   override async translate(
@@ -169,7 +179,13 @@ class BingService extends Service {
     await findAuth();
     if (!translateAuth) return [];
 
-    return await super.translate(sourceLanguage, targetLanguage, sourceArray2d, dontSaveInPersistentCache, dontSortResults);
+    return await super.translate(
+      sourceLanguage,
+      targetLanguage,
+      sourceArray2d,
+      dontSaveInPersistentCache,
+      dontSortResults,
+    );
   }
 }
 

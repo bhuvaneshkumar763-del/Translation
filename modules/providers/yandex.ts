@@ -1,5 +1,5 @@
+import { Service, type ServiceSingleResult, type TranslationInfo, Utils } from './types';
 import { XMLHttpRequestShim } from './xhrShim';
-import { Service, Utils, type ServiceSingleResult, type TranslationInfo } from './types';
 
 /**
  * TypeScript port of YandexHelper + the `yandexService` instance from
@@ -55,10 +55,13 @@ async function findSID(): Promise<void> {
       }
       resolve();
     };
-    http.onerror = http.onabort = http.ontimeout = (e) => {
-      console.error(e);
-      resolve();
-    };
+    http.onerror =
+      http.onabort =
+      http.ontimeout =
+        (e) => {
+          console.error(e);
+          resolve();
+        };
   });
 
   findPromise.finally(() => {
@@ -73,7 +76,7 @@ function cbTransformRequest(sourceArray: string[]): string {
 }
 
 function cbParseResponse(response: { lang?: string; text: string[] }): ServiceSingleResult[] {
-  const detectedLanguage = response.lang ? response.lang.split('-')[0] : null;
+  const detectedLanguage = response.lang ? (response.lang.split('-')[0] ?? null) : null;
   return response.text.map((text) => ({ text, detectedLanguage }));
 }
 
@@ -126,7 +129,13 @@ class YandexService extends Service {
       if (sourceLanguage === r.search) sourceLanguage = r.replace;
     }
 
-    return await super.translate(sourceLanguage, targetLanguage, sourceArray2d, dontSaveInPersistentCache, dontSortResults);
+    return await super.translate(
+      sourceLanguage,
+      targetLanguage,
+      sourceArray2d,
+      dontSaveInPersistentCache,
+      dontSortResults,
+    );
   }
 }
 

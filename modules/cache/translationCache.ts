@@ -204,27 +204,29 @@ class Cache {
       return 0;
     }
     try {
-      const entries = await new Promise<Array<{ key: IDBValidKey; lastUsed: number; size: number }>>((resolve, reject) => {
-        const out: Array<{ key: IDBValidKey; lastUsed: number; size: number }> = [];
-        const req = db.transaction([CACHE_STORAGE_NAME], 'readonly').objectStore(CACHE_STORAGE_NAME).openCursor();
-        req.onsuccess = (event) => {
-          const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
-          if (cursor) {
-            const v = (cursor.value ?? {}) as Partial<CacheEntry>;
-            let size = 0;
-            try {
-              size = JSON.stringify(v).length;
-            } catch {
-              // ignore
+      const entries = await new Promise<Array<{ key: IDBValidKey; lastUsed: number; size: number }>>(
+        (resolve, reject) => {
+          const out: Array<{ key: IDBValidKey; lastUsed: number; size: number }> = [];
+          const req = db.transaction([CACHE_STORAGE_NAME], 'readonly').objectStore(CACHE_STORAGE_NAME).openCursor();
+          req.onsuccess = (event) => {
+            const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
+            if (cursor) {
+              const v = (cursor.value ?? {}) as Partial<CacheEntry>;
+              let size = 0;
+              try {
+                size = JSON.stringify(v).length;
+              } catch {
+                // ignore
+              }
+              out.push({ key: cursor.key, lastUsed: v.lastUsed ?? 0, size });
+              cursor.continue();
+            } else {
+              resolve(out);
             }
-            out.push({ key: cursor.key, lastUsed: v.lastUsed ?? 0, size });
-            cursor.continue();
-          } else {
-            resolve(out);
-          }
-        };
-        req.onerror = () => reject(req.error);
-      });
+          };
+          req.onerror = () => reject(req.error);
+        },
+      );
 
       entries.sort((a, b) => a.lastUsed - b.lastUsed); // oldest first
 
@@ -312,7 +314,11 @@ class CacheListManager {
    * duplicate one), but is only persisted to the cache_list database after
    * cache.start() succeeds — see the class-level doc comment for why.
    */
-  private async createCache(translationService: string, sourceLanguage: string, targetLanguage: string): Promise<Cache> {
+  private async createCache(
+    translationService: string,
+    sourceLanguage: string,
+    targetLanguage: string,
+  ): Promise<Cache> {
     const cache = new Cache(translationService, sourceLanguage, targetLanguage);
     this.list.set(getDataBaseName(translationService, sourceLanguage, targetLanguage), cache);
     let started = false;
@@ -504,7 +510,11 @@ export const translationCache = {
   async deleteAll(reload = false): Promise<void> {
     try {
       // Delete the pre-fork, per-service legacy caches too, if they still exist.
-      await Promise.allSettled([deleteDatabase('googleCache'), deleteDatabase('yandexCache'), deleteDatabase('bingCache')]);
+      await Promise.allSettled([
+        deleteDatabase('googleCache'),
+        deleteDatabase('yandexCache'),
+        deleteDatabase('bingCache'),
+      ]);
       await cacheList.deleteAll();
     } finally {
       if (reload) browser.runtime.reload();
