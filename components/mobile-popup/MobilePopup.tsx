@@ -147,6 +147,21 @@ export function MobilePopup(props: MobilePopupProps) {
     setMenuOpen(false);
   }
 
+  // Gen 2 Session 5 note: unlike popup/App.tsx and options/App.tsx (real
+  // extension pages), this component runs inside a content script — and
+  // chrome.permissions (both .request() and even the read-only .contains())
+  // is entirely inaccessible from content-script contexts, full stop, not
+  // just gesture-restricted (confirmed against Chrome's own content-script
+  // API-access docs). So unlike those two files' matching fix, there's no
+  // way to prompt for (or even check) the optional <all_urls> grant from
+  // here. This toggle still saves the setting and translates the *current*
+  // page correctly (content-main is already running, or this UI wouldn't
+  // exist) — it just can't guarantee a *future* page load auto-translates
+  // unless that permission happens to already be granted, same caveat as
+  // documented for the popup/options equivalents. If this needs a real fix
+  // later, it requires a round trip through background.ts (the only
+  // context that can both read chrome.permissions and hold gesture state
+  // from its own UI) — not something this component can do on its own.
   function toggleAlwaysTranslateFromLang(): void {
     lastInteraction();
     const lang = fixTLanguageCode(props.getOriginalLanguage()) ?? props.getOriginalLanguage();

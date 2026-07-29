@@ -3,6 +3,7 @@ import type { Browser } from 'wxt/browser';
 import type { Config } from '@/modules/config/schema';
 import { twpConfig } from '@/modules/config/store';
 import { codeToLanguage, fixTLanguageCode } from '@/modules/languages';
+import { ALL_SITES_PERMISSION } from '@/modules/messaging/contentMainRegistration';
 import { sendEnsuringContentScript } from '@/modules/messaging/ensureContentScript';
 import { sendMessage } from '@/modules/messaging/protocol';
 import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
@@ -116,18 +117,38 @@ function App() {
     setServiceSignal((next as Config['pageTranslatorService'] | undefined) ?? service());
   }
 
+  // Gen 2 Session 5 regression fix: "always translate X" is a promise that
+  // can only be kept on a *future* page load with no user gesture — which,
+  // under Session 4's activeTab-by-default permission model, requires the
+  // optional <all_urls> grant (same one the options page's "automatic
+  // translation" toggle requests — see contentMainRegistration.ts). Without
+  // this, checking "always translate this site" here silently did nothing
+  // on the next visit whenever that broader permission wasn't already
+  // granted — the setting saved fine, it just had nothing to act on it.
+  // `browser.permissions.request` must be called synchronously (no `await`
+  // before it) inside this click-originated handler, or Chrome drops the
+  // required user-gesture context and the prompt never appears. The config
+  // is still saved even if the user declines the prompt — it'll take
+  // effect later if they grant the permission from Settings instead.
+  function requestAlwaysOnPermission(): void {
+    void browser.permissions.request(ALL_SITES_PERMISSION);
+  }
+
   function toggleAlwaysTranslateLang(): void {
     const lang = originalLanguage();
     if (lang === 'und') return;
-    if (!twpConfig.get('alwaysTranslateLangs').includes(lang))
+    if (!twpConfig.get('alwaysTranslateLangs').includes(lang)) {
+      requestAlwaysOnPermission();
       void twpConfig.addLangToAlwaysTranslate(lang, hostname());
-    else void twpConfig.removeLangFromAlwaysTranslate(lang);
+    } else void twpConfig.removeLangFromAlwaysTranslate(lang);
   }
   function toggleAlwaysTranslateSite(): void {
     const host = hostname();
     if (!host) return;
-    if (!twpConfig.get('alwaysTranslateSites').includes(host)) void twpConfig.addSiteToAlwaysTranslate(host);
-    else void twpConfig.removeSiteFromAlwaysTranslate(host);
+    if (!twpConfig.get('alwaysTranslateSites').includes(host)) {
+      requestAlwaysOnPermission();
+      void twpConfig.addSiteToAlwaysTranslate(host);
+    } else void twpConfig.removeSiteFromAlwaysTranslate(host);
   }
   function toggleNeverTranslateSite(): void {
     const host = hostname();

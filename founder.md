@@ -5,14 +5,14 @@
 > gets updated too. If you're reading this, it should reflect what the
 > extension actually does *today*, not what it used to do.
 >
-> **Heads up if you're reading this mid-2026:** the extension has been
-> rebuilt into "Prism" — new name, a new indigo/violet look across every
-> screen, and an AI-powered translation engine alongside the classic
-> Google/Bing/etc. options. The visual redesign and the permission/privacy
-> rework described below are both done now, not upcoming — see
-> `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` for
-> exactly what's landed vs. still planned (mainly release-engineering polish
-> at this point). This file describes today's build, not a destination.
+> The extension was rebuilt from an older fork into "Prism" — new name, a
+> new indigo/violet look across every screen, an AI-powered translation
+> engine alongside the classic Google/Bing/etc. options, a modern
+> ask-first permission model, and cross-device settings sync. That rebuild
+> is complete — everything below describes the finished product, not a
+> work in progress. See
+> `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` if you
+> want the session-by-session engineering history behind how it got here.
 
 ## The one-sentence version
 
@@ -69,7 +69,11 @@ There's a version of the popup adapted for touchscreens/mobile browsers.
 **7. Remembers your preferences per website.**
 You can tell it "always translate this site" or "never translate this
 site," and "always translate from this language," and it remembers that
-per-website — so you don't have to keep re-telling it.
+per-website — so you don't have to keep re-telling it. Turning on an
+"always translate" rule for the first time may show a one-time browser
+permission prompt — that's expected, and it's the same permission
+described in item 12 below, since "always" only works if Prism is allowed
+to check pages automatically.
 
 **8. A few extra helper windows:**
    - **"Improve translation"** — lets you manually correct which language a
@@ -139,22 +143,23 @@ are all the same or better, just built on sturdier foundations.
 
 ## Current state
 
-Every feature described above is built and working. The toolbar popup, the
-floating bubble, the selection/hover translation, mobile support, and all
-three helper windows ("Improve translation", "Translate text", "Translate
-document") are all in place. Nothing user-facing is currently missing
-compared to the original extension this is based on, aside from the two
-intentionally-dropped items listed above.
+Every feature described above is built and working, and the rebuild into
+Prism is finished — not a work in progress. The toolbar popup, the floating
+bubble, the selection/hover translation, mobile support, and all three
+helper windows ("Improve translation", "Translate text", "Translate
+document") are all in place. Nothing user-facing is missing compared to the
+original extension this is based on, aside from the two intentionally-
+dropped items listed above.
 
-One thing that *is* a deliberate change, not a gap: the classic/old-style
-popup skin mentioned in earlier versions of this file has been retired —
-Prism now ships one toolbar popup, redesigned, instead of two competing
-looks. Every screen — the popup, the floating bubble, the settings page,
-the hover tooltips, the mobile bar, the selection popup, and all three
-helper windows — now shares the same indigo "Prism" visual identity,
-replacing the old blue TWP styling. Same features throughout, new coat of
-paint everywhere.
+The classic/old-style popup skin mentioned in earlier versions of this file
+has been retired — Prism ships one toolbar popup, not two competing looks.
+Every screen — the popup, the floating bubble, the settings page, the
+hover tooltips, the mobile bar, the selection popup, and all three helper
+windows — shares the same indigo "Prism" visual identity, replacing the
+old blue TWP styling.
 
-Also new: the privacy/permission model described in item 12 above (ask
-first, by default, instead of standing access to every site) and the
-cross-device settings sync described in item 13.
+Two things worth knowing if you're comparing this to the pre-rebuild
+extension: the privacy/permission model in item 12 (ask first, by default,
+instead of standing access to every site you visit) and the cross-device
+settings sync in item 13 are both genuinely new — the old extension had
+neither.

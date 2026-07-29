@@ -321,6 +321,87 @@ complete.** What landed:
   same "not part of the CI gate yet, don't feel obligated to fix unrelated
   debt" policy as prior sessions).
 
+**Gen 2 rebuild — Session 5 (Release engineering + final polish) is
+complete. Gen 2 itself is now done.** What landed:
+- **Firefox build validated in CI**: a new parallel `build-firefox` job in
+  `.github/workflows/ci.yml` runs `npm run build:firefox`, checks the
+  expected entrypoint files exist in `.output/firefox-mv2`, then packages
+  and uploads both the Firefox zip and its required AMO-review sources zip
+  as build artifacts. `build:firefox` existed as an npm script since the
+  skeleton rewrite but was never checked anywhere automated before this.
+  No Firefox E2E — this repo's Playwright harness only drives Chromium
+  (see "Testing" below); a real Firefox runtime smoke test is a further
+  follow-up, not bundled in here.
+- **Bundle-size guardrail tightened**: 5MB generous placeholder → 3MB
+  (~1.3x the real ~2.32MB build), now that Sessions 2-4's actual growth is
+  known. Still generous enough for legitimate growth, tight enough to
+  catch a real regression.
+- **Release engineering via Changesets**: `@changesets/cli` added
+  (`npm run changeset` to add one, `npm run version` to apply pending ones
+  — see `.changeset/README.md`). Replaces hand-edited version bumps and
+  `CHANGELOG.md` entries going forward; this session used it for real to
+  produce the actual 11.0.0 → 12.0.0 (major) bump marking Gen 2 complete —
+  not just scaffolded and left untested. `CHANGELOG.md` gained a note
+  marking where auto-generated entries begin vs. the older hand-written
+  skeleton-rewrite history below it. Per-browser packaged zip artifacts
+  (task 2's other half) piggyback on the CI jobs above via the existing
+  `wxt zip`/`zip:firefox` scripts — no separate release workflow was
+  added, since there's no established tag/release process yet to gate one
+  on; every CI run now produces downloadable Chrome/Firefox zips as
+  artifacts, which is the concrete win without inventing release-tagging
+  ceremony nobody asked for.
+- **A real regression found by the audit pass, not just a formality**:
+  "Always translate this site" / "Always translate from {lang}" (popup)
+  and the equivalent always-translate/hover-translate list editors
+  (options page) saved their config setting correctly but — under Session
+  4's activeTab-by-default permission model — silently had no effect on a
+  *future* page load unless the optional `<all_urls>` grant happened to
+  already be on, since nothing can run automatically without either that
+  grant or a fresh user gesture. Fixed in `entrypoints/popup/App.tsx`
+  (`requestAlwaysOnPermission()`) and `entrypoints/options/App.tsx`
+  (`addInArray`'s `KEYS_NEEDING_ALWAYS_ON_PERMISSION` check): both now
+  call `browser.permissions.request(ALL_SITES_PERMISSION)` synchronously
+  inside the triggering click handler when enabling one of these settings
+  — imported from the shared `ALL_SITES_PERMISSION` constant in
+  `modules/messaging/contentMainRegistration.ts` (previously redeclared
+  locally in `options/App.tsx`; now there's one source of truth). Verified
+  for real against the built extension: both calls are reachable and
+  don't throw a context/gesture error when triggered by a genuine
+  Playwright click (the native permission dialog itself still can't be
+  driven headlessly — same documented limitation as everywhere else this
+  applies).
+  **Important platform-level finding from investigating this**: `chrome.permissions`
+  (both `.request()` *and the read-only* `.contains()`) is entirely
+  inaccessible from content-script contexts — confirmed against Chrome's
+  own content-script API-access docs, not assumed. This is why
+  `components/mobile-popup/MobilePopup.tsx`'s equivalent "always translate
+  from lang" menu item could **not** get the same fix — it runs inside
+  content-main, a content script, and has no path to either request or
+  even check that permission on its own. Left as a documented gap (see
+  that file's comment) rather than a broken/no-op fix. If this needs
+  solving properly later, it requires a message round trip through
+  `background.ts` for the *read* (`.contains()`), and accepting that the
+  *write* (`.request()`) can only ever happen from a real extension page —
+  there is no way to gesture-trigger it from a content script, full stop.
+- **Full regression pass**: `tsc`, unit tests (47), both builds, the full
+  Playwright E2E suite, and `npm audit` all clean after every change this
+  session, including after the permission-gap fix. Further attempts to
+  headlessly simulate a genuine toolbar-icon/context-menu user gesture
+  (to test the on-demand `activeTab` injection path completely end-to-end
+  from a fresh, fully-ungranted profile) hit the same well-established
+  Playwright limitation already documented in prior sessions — not a new
+  finding, so not re-litigated at length here; Session 4's unit tests
+  (`ensureContentScript.test.ts`) plus the real Chrome-enforcement checks
+  already done there remain the verification of record for that mechanism.
+- **Docs**: this section, plus `founder.md` (rewritten to describe the
+  finished Gen 2 product, not a work-in-progress), `ROADMAP.md` (Tier 4
+  items 13/14 marked done), and the plan file's Session 5 section all
+  updated.
+
+**Gen 2 is complete as of this session** — see the plan file's session map
+for the full arc (Sessions 1-5) and this file's "Current status" sections
+above for what each one actually shipped.
+
 ## Known gaps / next things to look at
 - **Release notes aren't wired into the new options page.** `showReleaseNotes`
   is still a config key (`modules/config/schema.ts`) but nothing renders
@@ -330,6 +411,17 @@ complete.** What landed:
   d7da732:options/release-notes/en.html` or earlier).
 - **Toolbar-icon translated/original state swap** (the old
   `icon-32-translated.png`) isn't wired up — cosmetic, not urgent.
+- **Mobile popup's "Always translate from {lang}" can't prompt for the
+  always-on permission** the way the equivalent popup/options controls do
+  (Session 5) — it runs in a content-script context, where `chrome.permissions`
+  is entirely inaccessible (not just gesture-restricted). See
+  `components/mobile-popup/MobilePopup.tsx`'s comment on
+  `toggleAlwaysTranslateFromLang` for the full explanation and what a real
+  fix would require (a message round trip through `background.ts`).
+- **No real Firefox E2E/runtime smoke test** — Session 5 added a Firefox
+  *build* validation job to CI, but this repo's Playwright harness only
+  ever drives Chromium (see "Testing" below). A genuine Firefox runtime
+  check is still open.
 
 ## Repo layout
 
@@ -458,7 +550,10 @@ calling anything done:
    `tests/e2e/run.mjs`, don't rediscover it): launch with `headless: false`
    but pass `'--headless=new'` as an arg — this makes Playwright pick the
    full Chrome binary while Chrome itself still runs headless.
-6. All of the above run in CI (`.github/workflows/ci.yml`) on every push/PR.
+6. All of the above run in CI (`.github/workflows/ci.yml`) on every push/PR
+   — plus, since Session 5, a parallel `build-firefox` job (build + expected-
+   entrypoints check + zip, no E2E — see "Known gaps") and zip-artifact
+   uploads for both browsers from the main job.
 7. For a real content-script round trip (not just structural/no-exception
    checks — `chrome.tabs.query({active:true})` in a plain Playwright tab
    resolves to that tab itself, not a page under test), serve a local static
@@ -468,6 +563,12 @@ calling anything done:
    tracked, see "Current status" above. Run `npm run lint:fix` for new code
    you write, but don't feel obligated to fix unrelated pre-existing
    findings while working on something else.
+9. **Releasing** (Session 5): `npm run changeset` to record a change (picks
+   a bump type + writes a short description to `.changeset/`), `npm run
+   version` to apply every pending changeset — bumps `package.json` and
+   prepends a `CHANGELOG.md` entry in one step. Not wired into CI as an
+   automated bot (no established release/tag process to gate it on) — run
+   both manually when a release is actually being cut.
 
 A real bug was caught by exactly this loop: a Solid.js native `<select>`
 bound via `value={signal()}` silently stopped resetting after a user pick,

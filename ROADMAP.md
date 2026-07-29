@@ -18,6 +18,11 @@ this file go stale the way the old `CHANGELOG.md` did.
 > operational source of truth for sequencing; this file stays as the
 > grounded "why" behind each item and gets its checkboxes updated as
 > sessions land.
+>
+> **Gen 2 is complete as of Session 5.** Every Tier 1-4 item below is
+> either done or explicitly, deliberately declined (telemetry — the user
+> was asked and said skip it). Tier 5 remains a genuine forward-looking
+> wishlist, not something Gen 2 promised.
 
 ## Tier 1 — Fix before this looks like a real gen-2 product
 
@@ -94,12 +99,19 @@ newer skeleton.
     `schema.ts`, wired into `store.ts`. Ships with zero real migrations
     (this session's schema changes were purely additive) — infrastructure
     for the next change that isn't, not a completed migration itself.
-13. **Verify cross-browser builds in CI.** `build:firefox` exists in
-    `package.json` but isn't validated anywhere automated; Safari isn't
-    addressed at all. Decide deliberately which browsers are real targets.
-14. **Release engineering.** Version bumps and `CHANGELOG.md` are hand-
-    edited today. Changesets (or similar) + CI-built, per-browser zip
-    artifacts would remove the manual step entirely.
+13. ✅ **DONE (Session 5).** Cross-browser builds verified in CI — a
+    parallel `build-firefox` job in `.github/workflows/ci.yml` builds,
+    checks expected entrypoints, and packages the Firefox target on every
+    push/PR. No Firefox *E2E* yet (Playwright here only drives Chromium) —
+    a real Firefox runtime smoke test remains open. Safari isn't addressed;
+    not decided as a target.
+14. ✅ **DONE (Session 5).** Release engineering — `@changesets/cli` added
+    (`npm run changeset` / `npm run version`) replacing hand-edited version
+    bumps and `CHANGELOG.md` entries; used for real to produce the
+    11.0.0 → 12.0.0 bump marking Gen 2 complete. Per-browser zip artifacts
+    now build and upload automatically in CI via the existing `wxt zip`
+    scripts (no separate release-tagging workflow — nothing to gate one on
+    yet).
 
 ## Tier 5 — Expansion, once the above lands
 

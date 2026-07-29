@@ -2,6 +2,7 @@ import { createSignal, For, onMount, Show } from 'solid-js';
 import type { Config } from '@/modules/config/schema';
 import { twpConfig } from '@/modules/config/store';
 import { codeToLanguage, fixTLanguageCode, uiLanguages } from '@/modules/languages';
+import { ALL_SITES_PERMISSION } from '@/modules/messaging/contentMainRegistration';
 import { sendMessage } from '@/modules/messaging/protocol';
 import { isProviderAvailable } from '@/modules/providers/descriptors';
 
@@ -173,7 +174,6 @@ function App() {
   // be called synchronously inside the click handler (no `await` before
   // it) or Chrome silently drops the required "user gesture" context and
   // the prompt never appears.
-  const ALL_SITES_PERMISSION = { origins: ['<all_urls>'] };
   const [autoEverywhere, setAutoEverywhere] = createSignal(false);
   onMount(async () => {
     setAutoEverywhere(await browser.permissions.contains(ALL_SITES_PERMISSION));
@@ -187,6 +187,20 @@ function App() {
     }
   }
 
+  // Gen 2 Session 5 regression fix: same reasoning as popup/App.tsx's
+  // requestAlwaysOnPermission — always-translate and hover-translate lists
+  // both depend on content-main actually running on a future page load
+  // with no user gesture, which under Session 4's permission model needs
+  // the optional <all_urls> grant. never-translate lists don't have this
+  // problem (if the broad permission isn't granted, nothing runs to
+  // wrongly translate in the first place, so there's nothing to "block").
+  const KEYS_NEEDING_ALWAYS_ON_PERMISSION = new Set([
+    'alwaysTranslateSites',
+    'alwaysTranslateLangs',
+    'sitesToTranslateWhenHovering',
+    'langsToTranslateWhenHovering',
+  ]);
+
   function addInArray(
     name: keyof Pick<
       Config,
@@ -199,6 +213,7 @@ function App() {
     >,
     value: string,
   ): void {
+    if (KEYS_NEEDING_ALWAYS_ON_PERMISSION.has(name)) void browser.permissions.request(ALL_SITES_PERMISSION);
     const current = twpConfig.get(name) as string[];
     if (!current.includes(value)) void set(name, [...current, value] as never);
   }
