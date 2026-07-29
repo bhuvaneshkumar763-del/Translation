@@ -29,6 +29,7 @@ export type PageLanguageState = 'original' | 'translated';
 export interface PageTranslatorOptions {
   getService(): string;
   getSourceLanguage(): string;
+  getDontSortResults(): boolean;
 }
 
 export function createPageTranslator(options: PageTranslatorOptions) {
@@ -118,6 +119,7 @@ export function createPageTranslator(options: PageTranslatorOptions) {
           sourceLanguage: options.getSourceLanguage(),
           targetLanguage: currentTargetLanguage,
           sourceArray2d: batch.map((node) => [node.data]),
+          dontSortResults: options.getDontSortResults(),
         });
         batch.forEach((node, idx) => {
           if (!node.isConnected) return;

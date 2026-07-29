@@ -3,6 +3,7 @@ import { translationService, initProviderRegistry } from '@/modules/providers/re
 import { initTextToSpeech } from '@/modules/tts/offscreenClient';
 import { translationCache } from '@/modules/cache/translationCache';
 import { onMessage, sendMessage } from '@/modules/messaging/protocol';
+import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 
 /**
  * Background: config init + the message router for translation (Google/
@@ -20,8 +21,24 @@ const tabPageStateByTabId = new Map<number, 'original' | 'translated'>();
 
 /** Sends the toggle to the main frame only, or every frame, depending on enableIframePageTranslation — matches the old code's sendToggleTranslationMessage. */
 function toggleTranslationForTab(tabId: number): void {
-  const target = twpConfig.get('enableIframePageTranslation') === 'yes' ? tabId : { tabId, frameId: 0 };
-  void sendMessage('toggleTranslation', undefined, target).catch(() => {});
+  void sendMessage('toggleTranslation', undefined, pageActionTarget(tabId)).catch(() => {});
+}
+
+/**
+ * Ported from the old background.js's resetBrowserAction: with
+ * translateClickingOnce on, the popup is cleared so the toolbar-icon click
+ * fires action.onClicked (toggle translation) instead; otherwise the click
+ * opens whichever popup skin useOldPopup selects. forceShow bypasses the
+ * translateClickingOnce carve-out so the "Show popup" context menu works
+ * even in click-once mode.
+ */
+function resetBrowserAction(forceShow = false): void {
+  if (twpConfig.get('translateClickingOnce') === 'yes' && !forceShow) {
+    void browser.action.setPopup({ popup: '' });
+  } else {
+    const popupPath = twpConfig.get('useOldPopup') === 'yes' ? '/old-popup.html' : '/popup.html';
+    void browser.action.setPopup({ popup: browser.runtime.getURL(popupPath) });
+  }
 }
 
 const CONTEXT_MENU_IDS = {
@@ -97,11 +114,14 @@ export default defineBackground(() => {
     updatePageContextMenu();
     updateSelectedTextContextMenu();
     updateActionContextMenu();
+    resetBrowserAction();
 
     twpConfig.onChanged((name) => {
       if (name === 'showTranslateSelectedContextMenu') updateSelectedTextContextMenu();
       else if (name === 'showTranslatePageContextMenu' || name === 'enableIframePageTranslation' || name === 'targetLanguage') {
         updatePageContextMenu();
+      } else if (name === 'useOldPopup' || name === 'translateClickingOnce') {
+        resetBrowserAction();
       }
     });
   });
@@ -204,7 +224,15 @@ export default defineBackground(() => {
           void sendMessage('TranslateSelectedText', undefined, tab.id).catch(() => {});
           break;
         case CONTEXT_MENU_IDS.showPopup:
-          browser.action.openPopup?.().catch(() => {});
+          resetBrowserAction(true);
+          if (browser.action.openPopup) {
+            void browser.action
+              .openPopup()
+              .catch(() => {})
+              .finally(() => resetBrowserAction());
+          } else {
+            resetBrowserAction();
+          }
           break;
         case CONTEXT_MENU_IDS.neverTranslate:
           if (tab.url) {
@@ -238,10 +266,10 @@ export default defineBackground(() => {
       case 'hotkey-swap-page-translation-service':
         // content-main.content.ts's handler does the actual
         // twpConfig.swapPageTranslationService() call + retranslate.
-        void sendMessage('swapTranslationService', undefined, tabId).catch(() => {});
+        void sendMessage('swapTranslationService', undefined, mainFrameTarget(tabId)).catch(() => {});
         break;
       case 'hotkey-show-original':
-        void sendMessage('restorePage', undefined, tabId).catch(() => {});
+        void sendMessage('restorePage', undefined, pageActionTarget(tabId)).catch(() => {});
         break;
       case 'hotkey-translate-page-1':
       case 'hotkey-translate-page-2':
@@ -250,7 +278,7 @@ export default defineBackground(() => {
         const lang = twpConfig.get('targetLanguages')[index];
         if (!lang) break;
         void twpConfig.setTargetLanguage(lang).then(() => {
-          void sendMessage('translatePage', { targetLanguage: lang }, tabId).catch(() => {});
+          void sendMessage('translatePage', { targetLanguage: lang }, pageActionTarget(tabId)).catch(() => {});
         });
         break;
       }

@@ -44,6 +44,7 @@ export default defineContentScript({
       // config — reading it live here (instead of threading a local mutable
       // var through) keeps this in sync with the bubble for free.
       getSourceLanguage: () => twpConfig.get('fpSourceLangByHost')[location.hostname] ?? 'auto',
+      getDontSortResults: () => twpConfig.get('dontSortResults') === 'yes',
     });
 
     onMessage('getCurrentPageLanguageState', () => pageTranslator.getState());

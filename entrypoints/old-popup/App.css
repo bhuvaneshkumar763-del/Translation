@@ -1,0 +1,215 @@
+:root {
+  --twp-accent: #2563eb;
+  --twp-accent2: #1d4ed8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 300px;
+  user-select: none;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.loading {
+  padding: 20px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+main {
+  margin: 10px;
+  position: relative;
+}
+
+.topRight {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.iconBtn {
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  padding: 8px 10px;
+  font-size: 15px;
+  cursor: pointer;
+  color: inherit;
+}
+.iconBtn:hover {
+  background-color: #eee;
+}
+
+label {
+  margin-right: 60px;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+.checkRow {
+  margin: 6px 0;
+  font-size: 12px;
+}
+.checkRow label {
+  margin-right: 0;
+  display: inline;
+}
+
+.flex-container,
+.flexRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+.flexRow {
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+button {
+  min-width: 80px;
+  margin-left: 5px;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--twp-accent);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+button:hover {
+  background: #f4f7ff;
+}
+button.primary {
+  background: linear-gradient(135deg, var(--twp-accent), var(--twp-accent2));
+  border-color: transparent;
+  color: #fff;
+}
+button.primary:hover {
+  filter: brightness(1.08);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.serviceSwap {
+  align-self: flex-end;
+  margin-left: 5px;
+  margin-right: 25px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  color: var(--twp-accent);
+  cursor: pointer;
+  user-select: none;
+}
+.serviceSwap:hover {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.rightButtons {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+select {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  font-size: 13px;
+  max-width: 100%;
+}
+#selectTargetLanguage {
+  width: 100%;
+  margin-top: 4px;
+}
+#btnOptions {
+  margin-left: 5px;
+  color: var(--twp-accent);
+  cursor: pointer;
+}
+#btnOptions option {
+  font-size: small;
+  font-weight: normal;
+  color: black;
+}
+
+input[type='checkbox'] {
+  accent-color: var(--twp-accent);
+}
+
+.fpBubbleToggleRow {
+  margin-top: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--twp-accent);
+  background: rgba(37, 99, 235, 0.06);
+  border-radius: 10px;
+}
+.fpBubbleToggleRow label {
+  margin-right: 0;
+  display: inline;
+}
+
+.improveBtn {
+  width: 100%;
+  margin: 20px 0 0 0;
+  cursor: pointer;
+  background-color: white;
+  color: inherit;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: 10px;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+.improveBtn:hover {
+  border-color: var(--twp-accent);
+  scale: 1.03;
+  box-shadow: 0 0 3px -2px black;
+}
+
+/* Ported from old-popup.js's enableDarkMode() injected stylesheet, driven by
+   prefers-color-scheme instead of the darkMode config key (matching the
+   approach the other rewritten popup surfaces use). */
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e8e6e3;
+    background-color: #181a1b;
+  }
+  .iconBtn:hover {
+    background-color: #454a4d;
+  }
+  select,
+  button,
+  .improveBtn {
+    color: #55a9ed;
+    background-color: #181a1b;
+    border: 1px solid #454a4d;
+  }
+  button.primary {
+    background: linear-gradient(135deg, var(--twp-accent), var(--twp-accent2));
+    border-color: transparent;
+    color: #fff;
+  }
+  button:hover {
+    background: #24282a;
+  }
+  .improveBtn {
+    color: #e8e6e3;
+  }
+  #btnOptions option {
+    color: GhostWhite;
+    background-color: #181a1b;
+  }
+}

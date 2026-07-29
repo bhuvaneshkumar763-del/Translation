@@ -3,6 +3,7 @@ import type { Browser } from 'wxt/browser';
 import { twpConfig } from '@/modules/config/store';
 import { sendMessage } from '@/modules/messaging/protocol';
 import { codeToLanguage, fixTLanguageCode } from '@/modules/languages';
+import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 import type { Config } from '@/modules/config/schema';
 import './App.css';
 
@@ -55,8 +56,8 @@ function App() {
     }
 
     const [state, originalLang] = await Promise.all([
-      sendMessage('getCurrentPageLanguageState', undefined, tab.id).catch(() => 'original' as const),
-      sendMessage('getOriginalTabLanguage', undefined, tab.id).catch(() => 'und'),
+      sendMessage('getCurrentPageLanguageState', undefined, mainFrameTarget(tab.id)).catch(() => 'original' as const),
+      sendMessage('getOriginalTabLanguage', undefined, mainFrameTarget(tab.id)).catch(() => 'und'),
     ]);
     setPageState(state);
     setOriginalLanguage(originalLang);
@@ -73,10 +74,10 @@ function App() {
     if (!id) return;
     setBusy(true);
     if (pageState() === 'translated') {
-      await sendMessage('restorePage', undefined, id);
+      await sendMessage('restorePage', undefined, pageActionTarget(id));
       setPageState('original');
     } else {
-      await sendMessage('translatePage', { targetLanguage: targetLanguage() }, id);
+      await sendMessage('translatePage', { targetLanguage: targetLanguage() }, pageActionTarget(id));
       setPageState('translated');
     }
     setBusy(false);
@@ -89,7 +90,7 @@ function App() {
     setBusy(true);
     setTargetLanguageSignal(fixed);
     await twpConfig.setTargetLanguage(fixed);
-    await sendMessage('translatePage', { targetLanguage: fixed }, id);
+    await sendMessage('translatePage', { targetLanguage: fixed }, pageActionTarget(id));
     setPageState('translated');
     setBusy(false);
   }
@@ -97,7 +98,7 @@ function App() {
   async function onSwapService(): Promise<void> {
     const id = tabId();
     if (!id) return;
-    const next = await sendMessage('swapTranslationService', undefined, id).catch(() => service());
+    const next = await sendMessage('swapTranslationService', undefined, mainFrameTarget(id)).catch(() => service());
     setServiceSignal(next as Config['pageTranslatorService']);
   }
 
@@ -119,7 +120,7 @@ function App() {
     if (!twpConfig.get('neverTranslateSites').includes(host)) {
       void twpConfig.addSiteToNeverTranslate(host);
       const id = tabId();
-      if (id) void sendMessage('restorePage', undefined, id);
+      if (id) void sendMessage('restorePage', undefined, pageActionTarget(id));
       setPageState('original');
     } else {
       void twpConfig.removeSiteFromNeverTranslate(host);
@@ -163,6 +164,15 @@ function App() {
   }
   function openOptions(): void {
     void browser.runtime.openOptionsPage().catch(() => {});
+  }
+  function openImproveTranslation(): void {
+    window.location.href = browser.runtime.getURL('/improve-translation.html');
+  }
+  function openTranslateText(): void {
+    void browser.tabs.create({ url: browser.runtime.getURL('/translate-text.html') });
+  }
+  function openTranslateDocument(): void {
+    void browser.tabs.create({ url: browser.runtime.getURL('/translate-document.html') });
   }
 
   const [langResource] = createResource(originalLanguage, (lang) => codeToLanguage(lang === 'und' ? 'en' : lang, effectiveUiLanguage()));
@@ -263,6 +273,15 @@ function App() {
         </Show>
 
         <div class="menuRow">
+          <button class="menuBtn" on:click={openImproveTranslation}>
+            Improve translation…
+          </button>
+          <button class="menuBtn" on:click={openTranslateText}>
+            Translate text…
+          </button>
+          <button class="menuBtn" on:click={openTranslateDocument}>
+            Translate document…
+          </button>
           <button class="menuBtn" on:click={toggleNeverTranslateSite}>
             Never translate this site
           </button>
