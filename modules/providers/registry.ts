@@ -27,47 +27,42 @@ function getSafeServiceByName(serviceName: string): TranslationProvider | null {
   return serviceList.get(serviceName) ?? null;
 }
 
-/** Register libre/deepl_freeapi from config on startup, and keep Google's proxy override in sync. */
+/** Register libre/deepl_freeapi from config on startup, and keep Google's proxy override + custom services in sync as the options page edits them. */
 export function initProviderRegistry(): void {
   twpConfig.onReady(() => {
-    const libre = twpConfig.get('customServices').find((cs) => cs.name === 'libre');
-    if (libre && 'url' in libre) {
-      serviceList.set('libre', createLibreService(libre.url, libre.apiKey));
-    }
-
-    const deeplFreeApi = twpConfig.get('customServices').find((cs) => cs.name === 'deepl_freeapi');
-    if (deeplFreeApi) {
-      serviceList.set('deepl', createDeeplFreeApiService(deeplFreeApi.apiKey));
-    }
-
+    applyCustomServices(twpConfig.get('customServices'));
     applyGoogleProxy(twpConfig.get('proxyServers'));
   });
 
   twpConfig.onChanged((name, newValue) => {
     if (name === 'proxyServers') {
       applyGoogleProxy(newValue as Config['proxyServers']);
+    } else if (name === 'customServices') {
+      applyCustomServices(newValue as Config['customServices']);
     }
   });
+}
+
+function applyCustomServices(customServices: Config['customServices']): void {
+  const libre = customServices.find((cs) => cs.name === 'libre');
+  if (libre && 'url' in libre) {
+    serviceList.set('libre', createLibreService(libre.url, libre.apiKey));
+  } else {
+    serviceList.delete('libre');
+  }
+
+  const deeplFreeApi = customServices.find((cs) => cs.name === 'deepl_freeapi');
+  if (deeplFreeApi) {
+    serviceList.set('deepl', createDeeplFreeApiService(deeplFreeApi.apiKey));
+  } else {
+    serviceList.set('deepl', deeplService);
+  }
 }
 
 function applyGoogleProxy(proxyServers: Config['proxyServers']): void {
   const url = new URL(googleService.baseURL);
   url.host = proxyServers?.google?.translateServer || 'translate-pa.googleapis.com';
   googleService.baseURL = url.toString();
-}
-
-/** Called from background.ts's createLibreService/removeLibreService/etc. message handlers (Phase 6 wires the options-page UI that sends these). */
-export function registerLibreService(url: string, apiKey: string): void {
-  serviceList.set('libre', createLibreService(url, apiKey));
-}
-export function removeLibreService(): void {
-  serviceList.delete('libre');
-}
-export function registerDeeplFreeApiService(apiKey: string): void {
-  serviceList.set('deepl', createDeeplFreeApiService(apiKey));
-}
-export function removeDeeplFreeApiService(): void {
-  serviceList.set('deepl', deeplService);
 }
 
 export const translationService = {

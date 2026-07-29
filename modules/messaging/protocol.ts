@@ -95,9 +95,22 @@ export interface ProtocolMap {
   reportMainFramePageLanguageState(data: { state: 'original' | 'translated' }): void;
   getMainFramePageLanguageState(): 'original' | 'translated';
 
-  // Filled in during Phase 6: authorizationToOpenOptions,
-  // restorePagesWithServiceNames, getTabMimeType, improveTranslation,
-  // autoTranslateBecauseClickedALink.
+  // --- Phase 6: toolbar popup ---
+  // popup (an extension page, not a content script) -> main frame's content
+  // script, tab-targeted (the popup resolves its own tabId via
+  // browser.tabs.query, so — unlike the Phase 5 entries above — there's no
+  // sender.tab to relay through). Popup-readable config values (current
+  // target language, current service, ...) don't need a round trip at all —
+  // the popup reads twpConfig directly, same as every other surface.
+  getOriginalTabLanguage(): string;
+  swapTranslationService(): string;
+
+  // Filled in during Phase 6 (later): authorizationToOpenOptions,
+  // improveTranslation.
+  //
+  // Filled in during Phase 7: restorePagesWithServiceNames, getTabMimeType,
+  // autoTranslateBecauseClickedALink, getCacheSize, deleteTranslationCache,
+  // contentScriptIsInjected, cleanUp.
   //
   // Filled in during Phase 7: getCacheSize, deleteTranslationCache,
   // contentScriptIsInjected, cleanUp.

@@ -1,0 +1,166 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-size: 14px;
+  color: #0f172a;
+  background: #f1f5f9;
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e2e8f0;
+    background: #0f172a;
+  }
+}
+
+.loading {
+  padding: 40px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+}
+.page h1 {
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+@media (prefers-color-scheme: dark) {
+  .section {
+    background: #1e293b;
+    box-shadow: none;
+    border: 1px solid #334155;
+  }
+}
+.section h2 {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+  margin: 0 0 12px;
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.row input[type='text'] {
+  flex: 1;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fieldGroup > span {
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+select,
+input[type='text'] {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  background: #f8fafc;
+  color: inherit;
+}
+@media (prefers-color-scheme: dark) {
+  select,
+  input[type='text'] {
+    background: #273345;
+    border-color: #334155;
+  }
+}
+
+button {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: inherit;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:hover {
+  filter: brightness(0.97);
+}
+.dangerBtn {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.fileBtn {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.listEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.listRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(128, 128, 128, 0.08);
+  font-size: 12.5px;
+}
+.addRow {
+  background: none;
+  padding: 0;
+}
+.removeBtn {
+  border: none;
+  background: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+.emptyHint {
+  opacity: 0.5;
+  font-size: 12px;
+  padding: 4px 8px;
+}

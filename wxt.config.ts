@@ -24,9 +24,9 @@ export default defineConfig({
     host_permissions: ['<all_urls>'],
     permissions: ['activeTab', 'storage', 'contextMenus', 'webRequest', 'offscreen'],
     optional_permissions: ['webNavigation'],
-    // options_ui re-added once entrypoints/options/ exists (Phase 6) — WXT
-    // auto-fills `page` from that entrypoint, and declaring options_ui without
-    // it produces an invalid manifest Chrome will reject at load time.
+    options_ui: {
+      open_in_tab: true,
+    },
     action: {
       default_icon: '/icons/icon-32.png',
       default_title: '__MSG_pageActionTitle__',

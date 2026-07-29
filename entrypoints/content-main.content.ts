@@ -63,6 +63,18 @@ export default defineContentScript({
         void sendMessage('reportMainFramePageLanguageState', { state }).catch(() => {});
       });
 
+      // Popup queries (tab-targeted, main frame only — no frameId means
+      // Chrome would deliver to every frame otherwise, and these are
+      // inherently whole-tab concepts).
+      onMessage('getOriginalTabLanguage', () => originalLanguage.get());
+      onMessage('swapTranslationService', async () => {
+        const next = await twpConfig.swapPageTranslationService();
+        if (pageTranslator.getState() === 'translated') {
+          await pageTranslator.translatePage(twpConfig.get('targetLanguage') ?? 'en');
+        }
+        return next;
+      });
+
       // Auto-translate-on-load decision, once the original language resolves.
       void originalLanguageReady.then(() => {
         const decision = shouldAutoTranslateOnLoad({
