@@ -171,6 +171,14 @@ export function createPageTranslator(options: PageTranslatorOptions) {
   }
 
   async function translatePage(targetLanguage: string): Promise<void> {
+    // Ported from the old pageTranslator.translatePage: always restore first,
+    // so re-translating (new target language, new service, new source
+    // language) while already translated collects the true original text
+    // instead of mistaking the current translation for it.
+    if (pageLanguageState === 'translated') {
+      restorePage();
+    }
+
     currentTargetLanguage = targetLanguage;
 
     const nodes = collectTextNodes(document.body);

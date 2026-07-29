@@ -98,3 +98,14 @@ const RTL_LANGUAGES = [
 export function isRtlLanguage(langCode: string): boolean {
   return RTL_LANGUAGES.includes(langCode);
 }
+
+/**
+ * Look up a language code's display name in a given UI language, falling
+ * back to English, then to the bare code if this extension has no name for
+ * it at all (an unrecognized/unsupported code).
+ */
+export function codeToLanguage(code: string, uiLanguage: string): string {
+  const fixed = fixUILanguageCode(uiLanguage) ?? 'en';
+  const table = (allLanguagesNames as Record<string, Record<string, string> | undefined>)[fixed];
+  return table?.[code] ?? allLanguagesNames.en[code as keyof typeof allLanguagesNames.en] ?? code;
+}

@@ -49,6 +49,12 @@ export interface ProtocolMap {
   offscreen_google_ttsVolume(data: { volume: number }): void;
   offscreen_bing_ttsVolume(data: { volume: number }): void;
 
+  // --- Phase 4: floating bubble ---
+  // content script -> background. Opens the options page (a stub until
+  // Phase 6 builds entrypoints/options/ and registers manifest.options_ui —
+  // browser.runtime.openOptionsPage() harmlessly no-ops/rejects until then).
+  openOptionsPage(): void;
+
   // Filled in during Phase 2+: translateText,
   // translateSingleText, detectTabLanguage, getMainFrameTabLanguage,
   // getMainFramePageLanguageState, setPageLanguageState,
@@ -56,13 +62,12 @@ export interface ProtocolMap {
   // getCurrentPageTranslatorService, currentTargetLanguage,
   // getCurrentPageLanguage, getOriginalTabLanguage.
   //
-  // Filled in during Phase 4: getTabHostName (bubble + others also use this),
-  // openOptionsPage.
-  //
   // Filled in during Phase 5: TranslateSelectedText, hotTranslateSelectedText,
   // thisFrameIsInFocus, anotherFrameIsInFocus, improveTranslation,
   // getCurrentSourceLanguage, getDontSortResults, showPopupMobile,
-  // autoTranslateBecauseClickedALink.
+  // autoTranslateBecauseClickedALink, getTabHostName (needed there because
+  // translateSelected/popupMobile run in every frame, unlike the main-frame-
+  // only bubble, which can just read location.hostname directly).
   //
   // Filled in during Phase 6: authorizationToOpenOptions,
   // restorePagesWithServiceNames, getTabMimeType.

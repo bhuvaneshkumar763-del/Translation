@@ -32,6 +32,13 @@ export default defineBackground(() => {
     );
   });
 
+  onMessage('openOptionsPage', () => {
+    // Stub until Phase 6 registers manifest.options_ui — harmlessly
+    // no-ops/rejects until then rather than pointing at a path that
+    // doesn't exist yet.
+    browser.runtime.openOptionsPage().catch(() => {});
+  });
+
   // Minimal translate/restore toggle via the toolbar icon, standing in for
   // the real popup (Phase 6) and the old code's translateClickingOnce path.
   browser.action.onClicked.addListener(async (tab) => {
