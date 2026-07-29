@@ -206,38 +206,40 @@ export function MobilePopup(props: MobilePopupProps) {
 
   return (
     <>
+      {/* Same shadow-DOM constraint as FloatingBubble.tsx/hover-tooltip
+          components — palette duplicated inline, kept in sync by hand. */}
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         .bar {
           position: fixed; left: 0; right: 0; z-index: 2147483647;
           display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-          background: #1e293b; color: #fff; box-shadow: 0 -2px 12px rgba(0,0,0,.3);
+          background: #ffffff; color: #0f172a; box-shadow: 0 -4px 16px -4px rgba(15,23,42,.25);
         }
-        .bar.top { top: 0; box-shadow: 0 2px 12px rgba(0,0,0,.3); }
+        .bar.top { top: 0; box-shadow: 0 4px 16px -4px rgba(15,23,42,.25); }
         .bar.bottom { bottom: 0; }
-        @media (prefers-color-scheme: light) { .bar { background: #f1f5f9; color: #0f172a; } }
+        @media (prefers-color-scheme: dark) { .bar { background: #1f1f38; color: #f1f5f9; } }
         .question { flex: 1; font-size: 13px; min-width: 0; }
         .btn {
           border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 700;
-          background: #2563eb; color: #fff; cursor: pointer;
+          background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; cursor: pointer;
         }
         .iconBtn {
           border: none; background: transparent; color: inherit; font-size: 18px; cursor: pointer;
           width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
         }
-        .iconBtn:hover { background: rgba(128,128,128,.2); }
+        .iconBtn:hover { background: rgba(99,102,241,.12); }
         .menu {
           position: fixed; left: 8px; right: 8px; z-index: 2147483647;
-          background: #1e293b; color: #fff; border-radius: 12px; padding: 8px;
-          box-shadow: 0 8px 24px rgba(0,0,0,.4);
+          background: #ffffff; color: #0f172a; border-radius: 12px; padding: 8px;
+          box-shadow: 0 12px 32px -10px rgba(15,23,42,.35), 0 0 0 1px rgba(15,23,42,.06);
         }
-        @media (prefers-color-scheme: light) { .menu { background: #f8fafc; color: #0f172a; } }
+        @media (prefers-color-scheme: dark) { .menu { background: #1f1f38; color: #f1f5f9; box-shadow: 0 12px 32px -10px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); } }
         .menuItem {
           display: flex; align-items: center; justify-content: space-between;
           padding: 10px 8px; font-size: 13px; cursor: pointer; border-radius: 8px;
         }
-        .menuItem:hover { background: rgba(128,128,128,.15); }
+        .menuItem:hover { background: rgba(99,102,241,.08); }
         select { font-size: 13px; padding: 4px; border-radius: 6px; }
       `}</style>
 

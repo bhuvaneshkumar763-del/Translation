@@ -102,7 +102,11 @@ export const builtinService: TranslationProvider = {
 
     return await Promise.all(
       sourceArray2d.map((pieces) =>
-        Promise.all(pieces.map((text) => translateOne(translator, sourceLanguage, targetLanguage, text, dontSaveInPersistentCache))),
+        Promise.all(
+          pieces.map((text) =>
+            translateOne(translator, sourceLanguage, targetLanguage, text, dontSaveInPersistentCache),
+          ),
+        ),
       ),
     );
   },

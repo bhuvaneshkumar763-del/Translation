@@ -32,20 +32,22 @@ this file go stale the way the old `CHANGELOG.md` did.
 
 ## Tier 2 — Trust & permissions
 
-5. **`host_permissions: ['<all_urls>']`** (`wxt.config.ts:22`) is the
-   broadest possible grant, with no scoped fallback via
-   `optional_host_permissions`. Modern MV3 best practice (and what Chrome
-   Web Store review increasingly expects) is `activeTab` by default with
-   per-site or on-demand grants. This is both a user-trust issue and a
-   store-approval risk, and it's the kind of change that gets harder the
-   longer real users depend on the broad grant — better to do it now.
-6. **No error visibility.** No telemetry, crash reporting, or logging
-   framework anywhere (`grep` for analytics/telemetry/sentry across
-   `modules/`, `entrypoints/`, `components/` returns nothing). If a
-   provider breaks for real users in the field, there's currently no way
-   to find out except a bug report. Doesn't need to be invasive — even
-   opt-in, aggregate-only error reporting would be new ground versus the
-   old extension, which had none either.
+5. ✅ **DONE (Session 4).** `host_permissions` scoped down from
+   `['<all_urls>']` to `['https://www.deepl.com/*']` (DeepL bridge only),
+   with `activeTab` + on-demand injection (`ensureContentScript.ts`) for the
+   core gesture path and an optional `<all_urls>` grant
+   (`contentMainRegistration.ts`) for users who want the old always-on
+   experience. Two non-obvious bugs found only by running the built
+   extension (a static `content_scripts` entry granting injection
+   independent of `host_permissions`; WXT itself folding a
+   `registration:'runtime'` script's `matches` back into mandatory
+   `host_permissions`) plus a Firefox-specific gap (`optional_host_permissions`
+   is MV3-only, silently stripped with no fallback on MV2) are all
+   documented in `CLAUDE.md`'s Session 4 section — worth reading before
+   touching this area again.
+6. **No error visibility.** Still open — explicitly asked about and
+   explicitly declined by the user in Session 4 ("skip it for now"), not
+   silently dropped. Revisit if the user wants it later.
 
 ## Tier 3 — The actual "radically new" differentiators
 
@@ -69,12 +71,14 @@ newer skeleton.
    API-based alternatives, but the specific asks here (Google Cloud
    Translation, Azure Translator, DeepL's real API as first-class options)
    aren't done.
-9. **Cross-device settings sync.** Still open, planned for Session 4 of the
-   Gen 2 plan. Config is `chrome.storage.local` only
-   (`modules/config/store.ts:9-11`) — a user's target languages, glossary,
-   and site rules don't follow them to another machine. `chrome.storage.sync`
-   (with its stricter quota) is the low-effort version; a real account/sync
-   backend is the ambitious version.
+9. ✅ **DONE (Session 4).** Cross-device settings sync via
+   `chrome.storage.sync` — `SYNCED_CONFIG_KEYS` in `modules/config/schema.ts`
+   is a deliberate allowlist (language prefs, translate lists, service
+   choice, behavior toggles), not everything: API keys, unbounded per-host
+   maps, and device-local facts stay `local:` only. See `CLAUDE.md`'s
+   Session 4 section for the full rationale and quota-safety design. A real
+   account/sync backend beyond the browser's own sync remains a further-out
+   idea, not started.
 10. ✅ **DONE (Session 2).** Provider capability registry —
     `modules/providers/descriptors.ts`. `registry.ts`'s dispatch/gating now
     derives from it; `schema.ts`'s three service enums are still
@@ -103,13 +107,14 @@ newer skeleton.
     flat global map — `schema.ts:59`).
 16. Side-by-side original/translated reading view (not just in-place
     replacement).
-17. ✅ **Largely done (Sessions 1 + 3).** Full rebrand away from the TWP
-    name/icon lineage: new name/icon/manifest strings (Session 1), and now
-    every primary UI surface — popup, floating bubble, options — actually
-    *looks* like Prism, not TWP with new copy. The old-popup alternate skin
-    (a direct TWP-lineage artifact) is deleted. What's left: the remaining
-    surfaces (hover-tooltip, mobile-popup, selection-popup, the standalone
-    windows), planned for Session 4/5.
+17. ✅ **DONE (Sessions 1 + 3 + 4).** Full rebrand away from the TWP
+    name/icon lineage: new name/icon/manifest strings (Session 1), every
+    primary UI surface — popup, floating bubble, options (Session 3) —
+    and every remaining surface — hover-tooltip (both variants),
+    mobile-popup, selection-popup, and the three standalone windows
+    (Session 4) — all now share the same Prism visual identity. The
+    old-popup alternate skin (a direct TWP-lineage artifact) is deleted.
+    Nothing left on this item.
 
 ## Not on this list on purpose
 

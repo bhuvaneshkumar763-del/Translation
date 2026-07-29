@@ -1,5 +1,7 @@
 import { translationCache } from '@/modules/cache/translationCache';
 import { twpConfig } from '@/modules/config/store';
+import { syncContentMainRegistration } from '@/modules/messaging/contentMainRegistration';
+import { sendEnsuringContentScript } from '@/modules/messaging/ensureContentScript';
 import { onMessage, sendMessage } from '@/modules/messaging/protocol';
 import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 import { initProviderRegistry, translationService } from '@/modules/providers/registry';
@@ -19,9 +21,9 @@ import { initTextToSpeech } from '@/modules/tts/offscreenClient';
 const tabLanguageByTabId = new Map<number, string>();
 const tabPageStateByTabId = new Map<number, 'original' | 'translated'>();
 
-/** Sends the toggle to the main frame only, or every frame, depending on enableIframePageTranslation — matches the old code's sendToggleTranslationMessage. */
+/** Sends the toggle to the main frame only, or every frame, depending on enableIframePageTranslation — matches the old code's sendToggleTranslationMessage. Falls back to on-demand content-script injection (see modules/messaging/ensureContentScript.ts) on origins without the optional broad host permission granted. */
 function toggleTranslationForTab(tabId: number): void {
-  void sendMessage('toggleTranslation', undefined, pageActionTarget(tabId)).catch(() => {});
+  void sendEnsuringContentScript(tabId, () => sendMessage('toggleTranslation', undefined, pageActionTarget(tabId)));
 }
 
 /**
@@ -146,6 +148,10 @@ export default defineBackground(() => {
   initProviderRegistry();
   initTextToSpeech();
 
+  void syncContentMainRegistration();
+  browser.permissions.onAdded.addListener(() => void syncContentMainRegistration());
+  browser.permissions.onRemoved.addListener(() => void syncContentMainRegistration());
+
   // A lightweight chrome.alarms-based keepalive — the old code had none (a
   // real gap under MV3's ~30s service-worker idle timeout). This is on top
   // of, not instead of, modules/providers/types.ts's task-scoped
@@ -241,11 +247,15 @@ export default defineBackground(() => {
         case CONTEXT_MENU_IDS.translatePage:
           toggleTranslationForTab(tab.id);
           break;
-        case CONTEXT_MENU_IDS.translateRestoreThisFrame:
-          void sendMessage('toggleTranslation', undefined, { tabId: tab.id, frameId: info.frameId }).catch(() => {});
+        case CONTEXT_MENU_IDS.translateRestoreThisFrame: {
+          const frameId = info.frameId;
+          void sendEnsuringContentScript(tab.id, () =>
+            sendMessage('toggleTranslation', undefined, { tabId: tab.id!, frameId: frameId ?? 0 }),
+          );
           break;
+        }
         case CONTEXT_MENU_IDS.translateSelectedText:
-          void sendMessage('TranslateSelectedText', undefined, tab.id).catch(() => {});
+          void sendEnsuringContentScript(tab.id, () => sendMessage('TranslateSelectedText', undefined, tab.id!));
           break;
         case CONTEXT_MENU_IDS.showPopup:
           resetBrowserAction(true);
@@ -282,18 +292,20 @@ export default defineBackground(() => {
         toggleTranslationForTab(tabId);
         break;
       case 'hotkey-translate-selected-text':
-        void sendMessage('TranslateSelectedText', undefined, tabId).catch(() => {});
+        void sendEnsuringContentScript(tabId, () => sendMessage('TranslateSelectedText', undefined, tabId));
         break;
       case 'hotkey-hot-translate-selected-text':
-        void sendMessage('hotTranslateSelectedText', undefined, tabId).catch(() => {});
+        void sendEnsuringContentScript(tabId, () => sendMessage('hotTranslateSelectedText', undefined, tabId));
         break;
       case 'hotkey-swap-page-translation-service':
         // content-main.content.ts's handler does the actual
         // twpConfig.swapPageTranslationService() call + retranslate.
-        void sendMessage('swapTranslationService', undefined, mainFrameTarget(tabId)).catch(() => {});
+        void sendEnsuringContentScript(tabId, () =>
+          sendMessage('swapTranslationService', undefined, mainFrameTarget(tabId)),
+        );
         break;
       case 'hotkey-show-original':
-        void sendMessage('restorePage', undefined, pageActionTarget(tabId)).catch(() => {});
+        void sendEnsuringContentScript(tabId, () => sendMessage('restorePage', undefined, pageActionTarget(tabId)));
         break;
       case 'hotkey-translate-page-1':
       case 'hotkey-translate-page-2':
@@ -302,7 +314,9 @@ export default defineBackground(() => {
         const lang = twpConfig.get('targetLanguages')[index];
         if (!lang) break;
         void twpConfig.setTargetLanguage(lang).then(() => {
-          void sendMessage('translatePage', { targetLanguage: lang }, pageActionTarget(tabId)).catch(() => {});
+          void sendEnsuringContentScript(tabId, () =>
+            sendMessage('translatePage', { targetLanguage: lang }, pageActionTarget(tabId)),
+          );
         });
         break;
       }

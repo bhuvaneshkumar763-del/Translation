@@ -107,17 +107,23 @@ export function OriginalTextTooltip(props: { pageTranslator: PageTranslator; sha
 
   return (
     <>
+      {/* Runs in the same shadow-DOM content-script context as
+          FloatingBubble.tsx, on arbitrary third-party pages — it can't
+          @import styles/tokens.css (see that file's header comment), so
+          this duplicates the same light/dark palette values inline. Keep
+          this in sync by hand if the token palette changes; see
+          FloatingBubble.tsx's <style> block for the canonical values. */}
       <style>{`
         .tooltip {
           position: fixed; z-index: 2147483647;
           max-width: 400px; padding: 10px 12px; border-radius: 10px;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
           font-size: 13px; line-height: 1.4;
-          background: rgba(30, 41, 59, 0.96); color: #fff;
-          box-shadow: 0 8px 24px -6px rgba(0,0,0,.5);
+          background: #ffffff; color: #0f172a;
+          box-shadow: 0 12px 32px -10px rgba(15,23,42,.35), 0 0 0 1px rgba(15,23,42,.06);
         }
-        @media (prefers-color-scheme: light) {
-          .tooltip { background: rgba(241, 245, 249, 0.98); color: #0f172a; }
+        @media (prefers-color-scheme: dark) {
+          .tooltip { background: #1f1f38; color: #f1f5f9; box-shadow: 0 12px 32px -10px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); }
         }
       `}</style>
       <Show when={visible()}>

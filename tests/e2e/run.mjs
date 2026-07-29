@@ -45,7 +45,7 @@ const candidateEntrypoints = [
     file: 'popup.html',
     async check(page) {
       const hasPrimaryBtn = (await page.locator('.primaryBtn').count()) > 0;
-      if (!hasPrimaryBtn) return 'expected the rebuilt popup\'s .primaryBtn to be present';
+      if (!hasPrimaryBtn) return "expected the rebuilt popup's .primaryBtn to be present";
     },
   },
   {

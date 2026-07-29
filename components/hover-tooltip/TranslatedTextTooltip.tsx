@@ -272,27 +272,31 @@ export function TranslatedTextTooltip(props: TranslatedTextTooltipProps) {
 
   return (
     <>
+      {/* Same shadow-DOM constraint as OriginalTextTooltip.tsx — palette
+          duplicated inline to match FloatingBubble.tsx's canonical values. */}
       <style>{`
         .tooltip {
           position: fixed; z-index: 2147483647;
           max-width: 400px; border-radius: 10px; overflow: hidden;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
           font-size: 13px; line-height: 1.4;
-          background: rgba(30, 41, 59, 0.96); color: #fff;
-          box-shadow: 0 8px 24px -6px rgba(0,0,0,.5);
+          background: #ffffff; color: #0f172a;
+          box-shadow: 0 12px 32px -10px rgba(15,23,42,.35), 0 0 0 1px rgba(15,23,42,.06);
         }
-        @media (prefers-color-scheme: light) {
-          .tooltip { background: rgba(241, 245, 249, 0.98); color: #0f172a; }
-          .head { background: rgba(0,0,0,.06) !important; }
-          .chip { border-color: rgba(0,0,0,.15) !important; }
+        @media (prefers-color-scheme: dark) {
+          .tooltip { background: #1f1f38; color: #f1f5f9; box-shadow: 0 12px 32px -10px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06); }
+          .head { background: #232342 !important; border-bottom-color: #33335a !important; }
+          .chip { border-color: #33335a !important; color: #f1f5f9; }
+          .chip.on { border-color: #818cf8 !important; color: #818cf8 !important; background: rgba(129,140,248,.15) !important; }
         }
         .body { padding: 10px 12px; }
-        .head { display: flex; gap: 4px; padding: 5px 8px; background: rgba(255,255,255,.08); }
+        .head { display: flex; gap: 4px; padding: 6px 8px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
         .chip {
-          border: 1px solid rgba(255,255,255,.25); border-radius: 6px;
+          border: 1px solid #e2e8f0; border-radius: 6px; background: transparent; color: #0f172a;
           font-size: 10px; font-weight: 700; padding: 2px 6px; cursor: pointer;
+          transition: border-color .12s ease, color .12s ease, background .12s ease;
         }
-        .chip.on { border-color: #60a5fa; color: #60a5fa; }
+        .chip.on { border-color: #6366f1; color: #4f46e5; background: rgba(99,102,241,.08); }
       `}</style>
       <Show when={visible()}>
         <div class="tooltip" ref={tooltipRef} style={{ top: `${pos().top}px`, left: `${pos().left}px` }}>

@@ -167,6 +167,26 @@ function App() {
     bump();
   }
 
+  // Gen 2 Session 4: reflects a real chrome.permissions grant, not a config
+  // flag — see wxt.config.ts's header comment for the permission model
+  // this is the settings-page half of. `browser.permissions.request` must
+  // be called synchronously inside the click handler (no `await` before
+  // it) or Chrome silently drops the required "user gesture" context and
+  // the prompt never appears.
+  const ALL_SITES_PERMISSION = { origins: ['<all_urls>'] };
+  const [autoEverywhere, setAutoEverywhere] = createSignal(false);
+  onMount(async () => {
+    setAutoEverywhere(await browser.permissions.contains(ALL_SITES_PERMISSION));
+  });
+  function toggleAutoEverywhere(e: Event): void {
+    const wantsOn = (e.currentTarget as HTMLInputElement).checked;
+    if (wantsOn) {
+      void browser.permissions.request(ALL_SITES_PERMISSION).then(setAutoEverywhere);
+    } else {
+      void browser.permissions.remove(ALL_SITES_PERMISSION).then((removed) => setAutoEverywhere(!removed));
+    }
+  }
+
   function addInArray(
     name: keyof Pick<
       Config,
@@ -369,6 +389,12 @@ function App() {
           </Section>
 
           <Section title="Backup">
+            <p class="hint">
+              Most preferences (languages, always/never-translate lists, and behavior toggles) already follow you across
+              devices automatically via your browser's own sync, when it's turned on. API keys and custom services stay
+              local to each device. Use export/import below for a full manual copy, or to move settings to a device
+              without sync enabled.
+            </p>
             <div class="row">
               <button on:click={exportConfig}>Export settings</button>
               <label class="fileBtn">
@@ -384,6 +410,18 @@ function App() {
 
         <TabPanel id="page" active={activeTab()}>
           <Section title="Page translation">
+            <label class="check aiHighlight">
+              <input type="checkbox" checked={autoEverywhere()} on:change={toggleAutoEverywhere} />
+              <span>
+                Enable automatic translation on all sites
+                <p class="hint">
+                  Off by default — Prism only reads a page when you ask it to (toolbar click, hotkey, or right-click
+                  menu), on any site, no permission prompt needed. Turn this on for the old "always ready" behavior —
+                  automatic translation, the floating bubble, and hover-translate everywhere — which needs a one-time
+                  site-access permission.
+                </p>
+              </span>
+            </label>
             <label class="row">
               <span>Service</span>
               <select
@@ -533,10 +571,7 @@ function App() {
                 type="checkbox"
                 checked={twpConfig.get('showTranslateSelectedButton') === 'yes'}
                 on:change={(e) =>
-                  void set(
-                    'showTranslateSelectedButton',
-                    (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no',
-                  )
+                  void set('showTranslateSelectedButton', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
                 }
               />
               Show a button to translate selected text
@@ -575,10 +610,7 @@ function App() {
                 type="checkbox"
                 checked={twpConfig.get('showOriginalTextWhenHovering') === 'yes'}
                 on:change={(e) =>
-                  void set(
-                    'showOriginalTextWhenHovering',
-                    (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no',
-                  )
+                  void set('showOriginalTextWhenHovering', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
                 }
               />
               Show original text when hovering over translated text

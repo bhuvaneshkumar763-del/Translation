@@ -3,6 +3,7 @@ import type { Browser } from 'wxt/browser';
 import type { Config } from '@/modules/config/schema';
 import { twpConfig } from '@/modules/config/store';
 import { codeToLanguage, fixTLanguageCode } from '@/modules/languages';
+import { sendEnsuringContentScript } from '@/modules/messaging/ensureContentScript';
 import { sendMessage } from '@/modules/messaging/protocol';
 import { mainFrameTarget, pageActionTarget } from '@/modules/messaging/tabTarget';
 import './App.css';
@@ -81,10 +82,12 @@ function App() {
     if (!id) return;
     setBusy(true);
     if (pageState() === 'translated') {
-      await sendMessage('restorePage', undefined, pageActionTarget(id));
+      await sendEnsuringContentScript(id, () => sendMessage('restorePage', undefined, pageActionTarget(id)));
       setPageState('original');
     } else {
-      await sendMessage('translatePage', { targetLanguage: targetLanguage() }, pageActionTarget(id));
+      await sendEnsuringContentScript(id, () =>
+        sendMessage('translatePage', { targetLanguage: targetLanguage() }, pageActionTarget(id)),
+      );
       setPageState('translated');
     }
     setBusy(false);
@@ -97,7 +100,9 @@ function App() {
     setBusy(true);
     setTargetLanguageSignal(fixed);
     await twpConfig.setTargetLanguage(fixed);
-    await sendMessage('translatePage', { targetLanguage: fixed }, pageActionTarget(id));
+    await sendEnsuringContentScript(id, () =>
+      sendMessage('translatePage', { targetLanguage: fixed }, pageActionTarget(id)),
+    );
     setPageState('translated');
     setBusy(false);
   }
@@ -105,8 +110,10 @@ function App() {
   async function onSwapService(): Promise<void> {
     const id = tabId();
     if (!id) return;
-    const next = await sendMessage('swapTranslationService', undefined, mainFrameTarget(id)).catch(() => service());
-    setServiceSignal(next as Config['pageTranslatorService']);
+    const next = await sendEnsuringContentScript(id, () =>
+      sendMessage('swapTranslationService', undefined, mainFrameTarget(id)),
+    );
+    setServiceSignal((next as Config['pageTranslatorService'] | undefined) ?? service());
   }
 
   function toggleAlwaysTranslateLang(): void {
@@ -275,12 +282,7 @@ function App() {
           </label>
         </div>
 
-        <button
-          type="button"
-          class="expandBtn"
-          aria-expanded={showMore()}
-          on:click={() => setShowMore(!showMore())}
-        >
+        <button type="button" class="expandBtn" aria-expanded={showMore()} on:click={() => setShowMore(!showMore())}>
           {showMore() ? 'Less' : 'More settings'}
           <svg
             class="chev"

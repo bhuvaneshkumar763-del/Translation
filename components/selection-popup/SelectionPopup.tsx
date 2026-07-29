@@ -412,7 +412,7 @@ export function SelectionPopup(props: SelectionPopupProps) {
         .btn {
           position: fixed; width: 30px; height: 30px; border-radius: 50%;
           cursor: pointer; z-index: 2147483647;
-          background: linear-gradient(140deg, #2563eb, #1d4ed8);
+          background: linear-gradient(140deg, #6366f1, #4f46e5);
           box-shadow: 0 4px 12px -3px rgba(0,0,0,.5);
           display: flex; align-items: center; justify-content: center;
           color: #fff; font-weight: 700; font-size: 13px;
@@ -427,11 +427,13 @@ export function SelectionPopup(props: SelectionPopupProps) {
           box-shadow: 0 12px 40px -10px rgba(15,23,42,.55), 0 0 0 1px rgba(15,23,42,.06);
         }
         @media (prefers-color-scheme: dark) {
-          .panel { background: #1e293b; color: #e2e8f0; box-shadow: 0 12px 40px -10px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06); }
-          .textbox { border-color: #334155 !important; }
-          .chip { background: #273345 !important; border-color: #334155 !important; color: #e2e8f0 !important; }
-          .chip.on { background: rgba(96,165,250,.14) !important; }
-          .drag { background: #182234 !important; }
+          .panel { background: #1f1f38; color: #f1f5f9; box-shadow: 0 12px 40px -10px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06); }
+          .textbox { border-color: #33335a !important; }
+          .chip { background: #232342 !important; border-color: #33335a !important; color: #f1f5f9 !important; }
+          .chip.on { background: rgba(129,140,248,.15) !important; border-color: #818cf8 !important; color: #818cf8 !important; }
+          .drag { background: #17172a !important; }
+          .actionBtn { background: #232342 !important; border-color: #33335a !important; color: #f1f5f9 !important; }
+          .actionBtn.on { border-color: #818cf8 !important; color: #818cf8 !important; }
         }
 
         .drag { cursor: move; padding: 6px 10px; background: #f1f5f9; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -442,7 +444,7 @@ export function SelectionPopup(props: SelectionPopupProps) {
           border-radius: 8px; padding: 3px 7px; font-size: 11px; font-weight: 700;
           cursor: pointer;
         }
-        .chip.on { border-color: #2563eb; color: #2563eb; background: rgba(37,99,235,.08); }
+        .chip.on { border-color: #6366f1; color: #4f46e5; background: rgba(99,102,241,.08); }
         .expandBtn { cursor: pointer; font-size: 11px; opacity: .6; padding: 2px 6px; }
 
         .textbox {
@@ -459,7 +461,7 @@ export function SelectionPopup(props: SelectionPopupProps) {
           border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px;
           font-size: 11px; font-weight: 600; padding: 5px 9px; cursor: pointer;
         }
-        .actionBtn.on { border-color: #2563eb; color: #2563eb; }
+        .actionBtn.on { border-color: #6366f1; color: #4f46e5; }
         .spinner-row { padding: 8px 12px; font-size: 12px; opacity: .6; }
       `}</style>
 

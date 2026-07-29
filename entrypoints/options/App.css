@@ -1,4 +1,4 @@
-@import '../../styles/tokens.css';
+@import "../../styles/tokens.css";
 
 * {
   box-sizing: border-box;
@@ -103,7 +103,7 @@ body {
   justify-content: space-between;
   gap: var(--prism-space-2);
 }
-.row input[type='text'] {
+.row input[type="text"] {
   flex: 1;
 }
 
@@ -116,6 +116,12 @@ body {
 .check input {
   accent-color: var(--prism-primary-500);
 }
+.check.aiHighlight {
+  align-items: flex-start;
+}
+.check.aiHighlight input {
+  margin-top: 3px;
+}
 
 .fieldGroup {
   display: flex;
@@ -127,10 +133,13 @@ body {
   font-weight: 600;
   opacity: 0.75;
 }
-.fieldGroup .hint {
+
+.hint {
+  display: block;
   font-size: var(--prism-text-xs);
+  font-weight: 400;
   opacity: 0.6;
-  margin: -2px 0 2px;
+  margin: 2px 0 0;
 }
 
 .aiHighlight {
@@ -141,7 +150,7 @@ body {
 }
 
 select,
-input[type='text'] {
+input[type="text"] {
   border: 1px solid var(--prism-border);
   border-radius: var(--prism-radius-sm);
   padding: 6px 8px;

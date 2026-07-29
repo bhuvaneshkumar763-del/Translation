@@ -218,6 +218,91 @@ export interface ConfigMigration {
 
 export const configMigrations: ConfigMigration[] = [];
 
+/**
+ * Gen 2 Session 4: cross-device settings sync. Keys in this set are stored
+ * under `sync:` (chrome.storage.sync / browser.storage.sync) instead of
+ * `local:` — see store.ts's `storageKeyFor`. Deliberately NOT every key:
+ * chrome.storage.sync has hard caps (100KB total, 8KB per item, 512 items)
+ * that a silent failure would corrupt the whole config layer against, so
+ * this is a conservative allowlist of small, genuinely cross-device-useful
+ * preferences, not "everything except an exclusion list". Kept local
+ * on purpose:
+ * - `customServices` (contains API keys — sync is a privacy/scope decision
+ *   a user should opt into explicitly, not a default; also keeps the door
+ *   open for genuinely different providers per device)
+ * - `fpSourceLangByHost` / `fpBubbleByHost` / `customDictionary`: unbounded
+ *   per-host/per-term maps that can realistically grow past the 8KB
+ *   per-item cap for a heavy user — export/import already covers moving
+ *   this data between devices deliberately
+ * - `hotkeys`: overwritten from this device's own `chrome.commands.getAll()`
+ *   on every `initConfig()` call (store.ts) — syncing it would just get
+ *   immediately stomped by the local device's real shortcuts, so it can
+ *   only ever be misleading in transit
+ * - `originalUserAgent` / `installDateTime`: facts about this specific
+ *   device/install, not preferences
+ * - `fpBubblePos`: screen-geometry-dependent (side/vertical fraction) —
+ *   what fits one device's viewport doesn't necessarily fit another's
+ * - `deeplConfirmed`, `showReleaseNotes`, `popupPanelSection`,
+ *   `enableDiskCache`, `proxyServers`: per-install state/capability
+ *   trade-offs rather than portable preferences
+ *
+ * Unbounded arrays that DID make the allowlist (`alwaysTranslateSites`,
+ * `neverTranslateSites`, `sitesToTranslateWhenHovering`,
+ * `langsToTranslateWhenHovering`, `alwaysTranslateLangs`,
+ * `neverTranslateLangs`) are a deliberate exception — they're the settings
+ * users most want to follow them across devices, and normal usage keeps
+ * them small (a handful of sites/langs). store.ts's `set()` logs rather
+ * than throws if a write ever does exceed quota, so a pathological case
+ * degrades to "didn't sync this write" instead of breaking the config
+ * layer.
+ */
+export const SYNCED_CONFIG_KEYS: ReadonlySet<ConfigKey> = new Set<ConfigKey>([
+  'uiLanguage',
+  'pageTranslatorService',
+  'textTranslatorService',
+  'textToSpeechService',
+  'enabledServices',
+  'ttsSpeed',
+  'ttsVolume',
+  'targetLanguage',
+  'targetLanguageTextTranslation',
+  'targetLanguages',
+  'alwaysTranslateSites',
+  'neverTranslateSites',
+  'sitesToTranslateWhenHovering',
+  'langsToTranslateWhenHovering',
+  'alwaysTranslateLangs',
+  'neverTranslateLangs',
+  'showTranslatePageContextMenu',
+  'showTranslateSelectedContextMenu',
+  'showButtonInTheAddressBar',
+  'showOriginalTextWhenHovering',
+  'showTranslateSelectedButton',
+  'whenShowMobilePopup',
+  'darkMode',
+  'popupBlueWhenSiteIsTranslated',
+  'dontShowIfIsNotValidText',
+  'dontShowIfPageLangIsTargetLang',
+  'dontShowIfPageLangIsUnknown',
+  'dontShowIfSelectedTextIsTargetLang',
+  'dontShowIfSelectedTextIsUnknown',
+  'expandPanelTranslateSelectedText',
+  'translateTagPre',
+  'enableIframePageTranslation',
+  'dontSortResults',
+  'translateDynamicallyCreatedContent',
+  'autoTranslateWhenClickingALink',
+  'translateSelectedWhenPressTwice',
+  'translateTextOverMouseWhenPressTwice',
+  'translateClickingOnce',
+  'useAlternativeService',
+  'showMobilePopupOnDesktop',
+  'popupMobileKeepOnScren',
+  'popupMobilePosition',
+  'addPaddingToPage',
+  'fpShowFloatingBubble',
+]);
+
 /** Applies every migration whose `toVersion` is above `storedVersion`, in ascending order. Pure — no storage I/O — so it's directly unit-testable; store.ts is responsible for reading/writing the actual chrome.storage.local entries and the version marker around this call. */
 export function applyConfigMigrations(
   rawEntries: Record<string, unknown>,

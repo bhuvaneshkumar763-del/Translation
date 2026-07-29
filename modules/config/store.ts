@@ -7,6 +7,7 @@ import {
   type ConfigKey,
   defaultConfig,
   legacyStorageKeyByConfigKey,
+  SYNCED_CONFIG_KEYS,
 } from './schema';
 
 /**
@@ -32,11 +33,21 @@ import {
 
 const DEFAULT_TARGET_LANGUAGES = ['en', 'es', 'de'];
 
-function storageKeyFor(name: ConfigKey): `local:${string}` {
+// Gen 2 Session 4: cross-device settings sync. Feature-detected rather than
+// assumed — storage.sync exists but can genuinely fail at the API level on
+// Firefox for a temporary/unsigned install with no declared gecko id (a real
+// gap already caught once this session for optional_host_permissions, same
+// caution applies here). When unavailable, every "synced" key silently
+// falls back to local: storage instead of throwing on every config read/write.
+const syncStorageAvailable = typeof browser !== 'undefined' && !!browser.storage?.sync;
+
+function storageKeyFor(name: ConfigKey): `local:${string}` | `sync:${string}` {
+  if (syncStorageAvailable && SYNCED_CONFIG_KEYS.has(name)) return `sync:${name}`;
   return `local:${legacyStorageKeyByConfigKey[name] ?? name}`;
 }
 
 const configSchemaVersionItem = storage.defineItem<number>('local:configSchemaVersion', { fallback: 0 });
+const syncMigrationCompleteItem = storage.defineItem<boolean>('local:syncMigrationComplete', { fallback: false });
 
 /** Runs any pending migrations against raw storage before the normal per-key loading below reads it. No-op on a fully up-to-date install (the common case) since it's gated on the stored version number. */
 async function migrateStorageIfNeeded(): Promise<void> {
@@ -53,6 +64,44 @@ async function migrateStorageIfNeeded(): Promise<void> {
     await browser.storage.local.set(changedEntries);
   }
   await configSchemaVersionItem.setValue(CONFIG_SCHEMA_VERSION);
+}
+
+/**
+ * One-time upgrade for existing installs: newly-synced keys (see
+ * SYNCED_CONFIG_KEYS in schema.ts) previously lived only under local:
+ * storage. Without this, an existing user's already-configured settings
+ * would appear to silently reset to defaults on the device that introduces
+ * sync (the sync: item starts empty; the old local: value is still there,
+ * just orphaned under a key nothing reads anymore). Runs once per install,
+ * gated by its own flag rather than the general schema version, since it's
+ * an unrelated concern and shouldn't block/be blocked by future schema bumps.
+ */
+async function migrateLocalSettingsToSyncIfNeeded(): Promise<void> {
+  if (!syncStorageAvailable) return;
+  if (await syncMigrationCompleteItem.getValue()) return;
+
+  const localEntries = await browser.storage.local.get(null);
+  const toSync: Record<string, unknown> = {};
+  for (const name of Object.keys(defaultConfig) as ConfigKey[]) {
+    if (!SYNCED_CONFIG_KEYS.has(name)) continue;
+    const rawLocalKey = legacyStorageKeyByConfigKey[name] ?? name;
+    if (Object.hasOwn(localEntries, rawLocalKey)) {
+      toSync[name] = localEntries[rawLocalKey];
+    }
+  }
+
+  if (Object.keys(toSync).length > 0) {
+    try {
+      await browser.storage.sync.set(toSync);
+    } catch (e) {
+      // Most likely cause: this batch alone exceeded a sync quota (e.g. a
+      // very long-lived install with huge always/never-translate lists).
+      // Not fatal — those settings simply stay local-only going forward,
+      // same as if sync were unavailable for this key.
+      console.error('[twpConfig] failed to migrate existing settings to sync storage', e);
+    }
+  }
+  await syncMigrationCompleteItem.setValue(true);
 }
 
 const items = Object.fromEntries(
@@ -88,6 +137,7 @@ for (const name of Object.keys(items) as ConfigKey[]) {
 
 async function initConfig(): Promise<void> {
   await migrateStorageIfNeeded();
+  await migrateLocalSettingsToSyncIfNeeded();
 
   // Load every key's current stored value (or its fallback) into state.
   await Promise.all(
@@ -190,7 +240,19 @@ export const twpConfig = {
 
   async set<K extends ConfigKey>(name: K, value: Config[K]): Promise<void> {
     (state as any)[name] = value;
-    await items[name].setValue(value);
+    try {
+      await items[name].setValue(value);
+    } catch (e) {
+      // Only realistically hit for sync: items — a chrome.storage.sync quota
+      // (100KB total / 8KB per item) is a real, user-reachable limit for the
+      // unbounded arrays in SYNCED_CONFIG_KEYS (e.g. a very long
+      // always-translate site list), unlike local: storage's effectively
+      // unlimited quota. Degrade to "this write didn't sync" — state is
+      // already updated above so the current session still behaves
+      // correctly — rather than let it become an unhandled rejection that
+      // breaks whatever UI action triggered it.
+      console.error(`[twpConfig] failed to persist "${name}"`, e);
+    }
     // items[name].watch() above also fires from this same write (chrome
     // storage.onChanged fires in every context, including the writer's), so
     // notify() isn't called again here to avoid a double notification.

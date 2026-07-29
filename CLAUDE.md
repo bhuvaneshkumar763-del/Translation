@@ -200,6 +200,127 @@ landed:
   touches (hover-tooltip, mobile-popup, selection-popup, the standalone
   windows).
 
+**Gen 2 rebuild — Session 4 (Trust, permissions, sync, remaining surfaces) is
+complete.** What landed:
+- **Permissions scoped down**, `wxt.config.ts`: `host_permissions` went from
+  an unconditional `['<all_urls>']` to `['https://www.deepl.com/*']` only
+  (the DeepL live-tab bridge's fixed, narrow need); everything else is
+  `activeTab` (the on-demand "translate this page" gesture — toolbar click,
+  hotkey, context menu) plus an optional `<all_urls>` grant a user can turn
+  on from Settings → Page ("Enable automatic translation on all sites") for
+  the old always-on/floating-bubble/hover experience.
+- **Two real, non-obvious bugs found only by running the built extension**,
+  not by code review or `tsc` — both now documented in the relevant file so
+  they aren't rediscovered the hard way again:
+  1. A *static* `content_scripts` manifest entry's own `matches` pattern
+     grants injection rights independent of `host_permissions` — scoping
+     down `host_permissions` alone did nothing while
+     `content-main.content.ts` stayed on the default `'manifest'`
+     registration. Fixed by moving it to `registration: 'runtime'` and
+     dynamically registering it only once the optional permission is
+     actually granted, via `browser.scripting.registerContentScripts`/
+     `unregisterContentScripts` in the new
+     `modules/messaging/contentMainRegistration.ts` (`syncContentMainRegistration()`,
+     called on background startup and on `permissions.onAdded`/`onRemoved`).
+  2. WXT itself then unconditionally folds a `registration: 'runtime'`
+     script's own `matches` field into the *mandatory* `host_permissions`
+     array at build time (documented WXT behavior, not a bug in WXT — see
+     `node_modules/wxt/dist/core/utils/manifest.mjs`) — silently putting
+     `<all_urls>` right back as a mandatory permission. Caught by a
+     diagnostic logging `chrome.permissions.contains()` on a brand-new
+     profile and getting `true` when it should have been `false`. Fixed by
+     omitting `matches` entirely from `content-main.content.ts`'s
+     `defineContentScript()` — the real matches pattern lives solely in
+     `contentMainRegistration.ts`'s own argument to
+     `registerContentScripts()`, evaluated only once the real permission is
+     held. See that file's header comment for the full account.
+  3. A third, Firefox-specific gap found the same way: `optional_host_permissions`
+     is an MV3-only manifest key — WXT silently strips it from the Firefox
+     MV2 build with **no fallback**, which would have made the "automatic
+     translation" opt-in permanently ungrantable on Firefox with no error,
+     just a checkbox that quietly did nothing. Fixed by making
+     `wxt.config.ts`'s `manifest` a per-browser function
+     (`(env) => ({...})`) that puts `<all_urls>` into `optional_permissions`
+     instead for Firefox (MV2 has one unified permissions/optional_permissions
+     array, no separate host-permission concept) — verified by diffing the
+     actual built `manifest.json` for both targets, not assumed.
+- **On-demand injection fallback** for the `activeTab` gesture path:
+  `modules/messaging/ensureContentScript.ts`'s `sendEnsuringContentScript()`
+  — tries the message send, and on a "no receiver" error injects
+  content-main via `browser.scripting.executeScript` then retries (up to 6x,
+  150ms apart). Used by every direct-to-tab message send in `background.ts`
+  (toolbar/context-menu/hotkey paths) and the three `sendMessage` call sites
+  in `entrypoints/popup/App.tsx` that need the content script live.
+- **Verification depth**: confirmed via real Playwright runs against the
+  actual built extension, not just unit tests — (a) a fresh profile shows
+  zero `chrome.permissions.contains()` grant and zero content-script
+  injection (checked via the shadow-DOM bubble host element being absent —
+  a content-script-set `window` property does NOT leak to the page's
+  main-world `window`, since content scripts run in an isolated JS world;
+  learned this checking the wrong thing first), (b) a build copy with
+  `<all_urls>` statically pre-granted (simulating post-grant state, since
+  `chrome.permissions.request()`'s native dialog cannot be driven by
+  headless Playwright — same category of limitation already documented
+  below for toolbar-icon clicks) shows `syncContentMainRegistration()`
+  self-registering on startup, the bubble mounting, and a full LLM
+  translate round-trip (mock server, real grouped request, real DOM
+  update) working end to end. Direct calls to `registerContentScripts()`
+  *without* the permission genuinely fail (Chrome enforces this for real,
+  confirmed, not just declaratively) — the negative case is as solid as
+  the positive one.
+- **Cross-device settings sync**, `modules/config/schema.ts` +
+  `modules/config/store.ts`: a new `SYNCED_CONFIG_KEYS` allowlist (not
+  "everything except an exclusion list" — `chrome.storage.sync`'s hard caps,
+  100KB total / 8KB per item / 512 items, make a silent overflow a real
+  failure mode to design around) covers language preferences, always/never-
+  translate lists, service choice, and behavior toggles. Deliberately kept
+  local: `customServices` (API keys — sync is an explicit privacy/scope
+  choice, not a default), the unbounded per-host/per-term maps
+  (`fpSourceLangByHost`, `fpBubbleByHost`, `customDictionary` — real quota
+  risk for a heavy user), `hotkeys` (overwritten from this device's own
+  `chrome.commands.getAll()` every load — syncing it would just get
+  immediately stomped), and a few device-local facts/trade-offs
+  (`originalUserAgent`, `installDateTime`, `fpBubblePos`, `enableDiskCache`,
+  `proxyServers`, `deeplConfirmed`, `showReleaseNotes`, `popupPanelSection`).
+  `storageKeyFor()` picks `sync:`/`local:` per key, feature-detected
+  (`!!browser.storage?.sync`) so it degrades to all-local rather than
+  throwing if sync is genuinely unavailable. A one-time
+  `migrateLocalSettingsToSyncIfNeeded()` copies an *existing* install's
+  already-configured local values into sync on first upgrade, so enabling
+  sync doesn't look like a silent reset to defaults. `set()` now catches
+  (rather than lets propagate) a storage-write failure — the realistic
+  trigger is a sync quota overflow on a pathological always/never-translate
+  list, and degrading to "this write didn't sync" beats an unhandled
+  rejection breaking whatever UI action triggered it. Verified against the
+  real built extension (not just unit tests): synced keys land in
+  `chrome.storage.sync`, `hotkeys`/`customServices` correctly stay in
+  `chrome.storage.local`, and the migration-complete flag sets once.
+- **Telemetry**: explicitly asked, explicitly declined by the user
+  ("Skip it for now") — not implemented, not a gap.
+- **Every remaining surface restyled** onto `styles/tokens.css`'s palette:
+  `components/hover-tooltip/` (both variants), `components/mobile-popup/`,
+  `components/selection-popup/`, and the three standalone windows
+  (`entrypoints/translate-text/`, `translate-document/`,
+  `improve-translation/`). The three content-script/shadow-DOM components
+  (tooltips, mobile popup, selection popup) can't `@import` the token file
+  for the same reason `FloatingBubble.tsx` can't (closed shadow root on
+  arbitrary third-party pages) — their palette is duplicated inline,
+  matching `FloatingBubble.tsx`'s established Session 3 pattern exactly
+  (same hex values), not reinvented. The three standalone windows
+  (real top-level extension pages, not shadow DOM) `@import` the token file
+  directly, same as the popup/options pattern from Session 3. Verified with
+  real screenshots (light + dark) of all three standalone windows, plus a
+  real-page check that the selection-popup button renders correctly
+  (confirmed visually; the follow-up click-to-open-panel check hit a
+  headless-Playwright shadow-root-piercing limitation unrelated to this
+  session's CSS-only changes — not pursued further, matching this
+  codebase's existing precedent for headless-automation gaps around native
+  browser chrome).
+- Lint: 53 (end of Session 3) → 45 errors after `npm run lint:fix` on the
+  touched files (mostly formatting; a few genuine a11y findings remain,
+  same "not part of the CI gate yet, don't feel obligated to fix unrelated
+  debt" policy as prior sessions).
+
 ## Known gaps / next things to look at
 - **Release notes aren't wired into the new options page.** `showReleaseNotes`
   is still a config key (`modules/config/schema.ts`) but nothing renders
@@ -236,6 +357,12 @@ modules/              framework-agnostic domain logic, imported by entrypoints
   messaging/             protocol.ts (discriminated-union message contracts,
                          via @webext-core/messaging) + tabTarget.ts (shared
                          mainFrameTarget/pageActionTarget helpers — see below)
+                         + ensureContentScript.ts (on-demand injection +
+                         retry for the activeTab gesture path) +
+                         contentMainRegistration.ts (dynamic content-main
+                         registration gated on the optional <all_urls>
+                         grant) — both added in Gen 2 Session 4, see that
+                         section above
   providers/             google.ts, bing.ts, yandex.ts, deepl.ts, libre.ts,
                          llm.ts, builtin.ts, descriptors.ts (provider
                          capability registry), registry.ts, types.ts

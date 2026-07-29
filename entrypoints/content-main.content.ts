@@ -24,12 +24,59 @@ import { createPageTranslator, type PageTranslator } from '@/modules/page-transl
  * page-translation engine itself.
  */
 export default defineContentScript({
-  matches: ['<all_urls>'],
+  // No `matches` here — deliberately. Gen 2 Session 4: 'runtime' instead of
+  // the default 'manifest' is the load-bearing part of the permission
+  // scope-down, not just the host_permissions/optional_host_permissions
+  // split in wxt.config.ts. A *static* manifest content_scripts entry with
+  // matches:['<all_urls>'] grants itself the right to inject everywhere as
+  // part of what the user approves at install/update time — that's
+  // independent of host_permissions and does NOT shrink just because
+  // host_permissions does (confirmed the hard way: removing
+  // host_permissions alone, with this still on 'manifest' registration,
+  // left the script injecting on every page regardless — a real E2E check
+  // caught it, code review alone would not have).
+  //
+  // A *second*, subtler version of the same bug: WXT's own build step
+  // unconditionally folds a 'runtime'-registration script's `matches` into
+  // the manifest's mandatory `host_permissions` array (see
+  // node_modules/wxt/dist/core/utils/manifest.mjs — documented behavior,
+  // not a bug in WXT: it assumes a runtime-registered script's origins are
+  // always meant to be permanently available, so registerContentScripts()
+  // never fails for lack of permission). Declaring matches:['<all_urls>']
+  // here — even with registration:'runtime' — silently put <all_urls> back
+  // into host_permissions, defeating the entire scope-down while every
+  // other signal (manifest content_scripts array, a fresh-install E2E
+  // check) looked correct. Caught only by a diagnostic that logged
+  // chrome.permissions.contains() on a brand-new profile and got `true`
+  // when it should have been `false`. Fix: omit `matches` entirely from
+  // this entrypoint. The real matches pattern this script is registered
+  // for lives solely in contentMainRegistration.ts's own argument to
+  // browser.scripting.registerContentScripts(), called only once the
+  // optional <all_urls> permission has actually been granted — see
+  // background.ts's syncContentMainRegistration. That call is the real
+  // Chrome scripting API operating on a runtime-granted optional
+  // permission, which Chrome does support without the pattern needing to
+  // be in static host_permissions ahead of time.
   runAt: 'document_end',
   allFrames: true,
   matchAboutBlank: true,
   cssInjectionMode: 'ui',
+  registration: 'runtime',
   async main(ctx) {
+    // This script can now run two ways in the same frame — registered
+    // broadly via background.ts's syncContentMainRegistration (once the
+    // optional host permission is granted) or on-demand via
+    // background.ts's chrome.scripting.executeScript fallback (the
+    // activeTab path used when that permission hasn't been granted for
+    // this origin). Never both by design, but this guards the case where
+    // a fresh on-demand injection would otherwise double-run everything
+    // below — duplicate mutation observers, duplicate onMessage
+    // registrations (which @webext-core/messaging itself throws on: "only
+    // one listener can be setup for X"), the works.
+    const w = window as typeof window & { __prismContentMainActive?: boolean };
+    if (w.__prismContentMainActive) return;
+    w.__prismContentMainActive = true;
+
     await twpConfig.onReady();
 
     const isMainFrame = window.self === window.top;

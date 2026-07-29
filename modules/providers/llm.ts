@@ -72,9 +72,7 @@ export function createLlmService(baseUrl: string, apiKey: string, model: string)
           { name: 'Authorization', value: `Bearer ${apiKey}` },
         ],
 
-        cbParseResponse: (response: {
-          choices?: Array<{ message?: { content?: string } }>;
-        }): ServiceSingleResult[] => {
+        cbParseResponse: (response: { choices?: Array<{ message?: { content?: string } }> }): ServiceSingleResult[] => {
           const content = response.choices?.[0]?.message?.content;
           if (!content) return [];
           let parsed: unknown;

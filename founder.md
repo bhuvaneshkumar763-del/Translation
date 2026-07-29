@@ -5,15 +5,14 @@
 > gets updated too. If you're reading this, it should reflect what the
 > extension actually does *today*, not what it used to do.
 >
-> **Heads up if you're reading this mid-2026:** the extension is partway
-> through being rebuilt into "Prism" — a new name, a new look (not built
-> yet), and an AI-powered translation engine (this part *is* built now, see
-> item 2 below) alongside the classic Google/Bing/etc. options. Some of
-> what's described below (the two popup styles, the plain "pick a service"
-> UI) is *current* but will change over the next few sessions — see
-> `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` for what's
-> already landed vs. still planned. This file describes today's build, not
-> the destination.
+> **Heads up if you're reading this mid-2026:** the extension has been
+> rebuilt into "Prism" — new name, a new indigo/violet look across every
+> screen, and an AI-powered translation engine alongside the classic
+> Google/Bing/etc. options. The visual redesign and the permission/privacy
+> rework described below are both done now, not upcoming — see
+> `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` for
+> exactly what's landed vs. still planned (mainly release-engineering polish
+> at this point). This file describes today's build, not a destination.
 
 ## The one-sentence version
 
@@ -100,6 +99,26 @@ translation service again — it's instant, and it also means slightly less
 data sent out over the network. There's a size cap so this cache doesn't
 grow forever.
 
+**12. It only reads a page when you ask it to.**
+By default, Prism doesn't have standing access to every website you
+visit — it only looks at a page's text at the moment you click the toolbar
+icon, use a keyboard shortcut, or pick "translate" from the right-click
+menu, on whichever page you're currently on. If you'd rather have the old
+"always ready" experience — the floating bubble and automatic/hover
+translation showing up on every site without you asking first — there's a
+one-time toggle for that in Settings → Page ("Enable automatic translation
+on all sites"), which asks your browser for that broader permission
+up front.
+
+**13. Most of your settings follow you to your other devices.**
+If you're signed into your browser's sync (the same feature that syncs
+your bookmarks and passwords across computers), Prism's language
+preferences, always/never-translate lists, and behavior toggles sync along
+with it automatically — no setup needed. Anything sensitive, like a
+plugged-in AI API key, stays on that one device only. You can also still
+export/import settings by hand from the Backup section, which is useful
+for moving things to a device without browser sync turned on.
+
 ## What it does NOT do (on purpose)
 
 - It doesn't translate PDF files or Word documents by itself — for those,
@@ -130,7 +149,12 @@ intentionally-dropped items listed above.
 One thing that *is* a deliberate change, not a gap: the classic/old-style
 popup skin mentioned in earlier versions of this file has been retired —
 Prism now ships one toolbar popup, redesigned, instead of two competing
-looks. The popup, the floating bubble, and the settings page have all been
-given a fresh visual identity (the indigo "Prism" look, replacing the old
-blue TWP styling) — same features, new coat of paint, still in progress
-across the remaining screens.
+looks. Every screen — the popup, the floating bubble, the settings page,
+the hover tooltips, the mobile bar, the selection popup, and all three
+helper windows — now shares the same indigo "Prism" visual identity,
+replacing the old blue TWP styling. Same features throughout, new coat of
+paint everywhere.
+
+Also new: the privacy/permission model described in item 12 above (ask
+first, by default, instead of standing access to every site) and the
+cross-device settings sync described in item 13.
