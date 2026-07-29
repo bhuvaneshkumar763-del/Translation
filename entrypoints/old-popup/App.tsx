@@ -22,6 +22,10 @@ const SERVICE_LABELS: Record<Config['pageTranslatorService'], string> = {
   google: 'Google',
   bing: 'Bing',
   yandex: 'Yandex',
+  // This whole entrypoint is deleted in Session 3 — just satisfying the
+  // enum's type here, not a real UI decision for a file on its way out.
+  llm: 'AI',
+  builtin: 'Built-in AI',
 };
 
 function effectiveUiLanguage(): string {

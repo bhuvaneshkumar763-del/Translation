@@ -50,6 +50,11 @@ const SERVICE_LABELS: Record<Config['textTranslatorService'], string> = {
   yandex: 'Y',
   deepl: 'D',
   libre: 'L',
+  // Not in PAGE_TEXT_SERVICES below (yet) — see FloatingBubble.tsx's same
+  // comment; curated placement is a Session 3 UI call, this Record just
+  // needs to type-check against the full textTranslatorService enum.
+  llm: 'AI',
+  builtin: 'BI',
 };
 const PAGE_TEXT_SERVICES: Array<Config['textTranslatorService']> = ['google', 'bing', 'yandex', 'deepl'];
 

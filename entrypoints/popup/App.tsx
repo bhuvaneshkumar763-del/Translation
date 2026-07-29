@@ -21,6 +21,10 @@ const SERVICE_LABELS: Record<Config['pageTranslatorService'], string> = {
   google: 'Google',
   bing: 'Bing',
   yandex: 'Yandex',
+  // Not in the quick-switch service button row (yet) — curated placement
+  // is a Session 3 UI call, this Record just needs to type-check.
+  llm: 'AI',
+  builtin: 'Built-in AI',
 };
 
 async function getActiveTab(): Promise<Browser.tabs.Tab | undefined> {

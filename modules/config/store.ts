@@ -1,6 +1,13 @@
 import { storage, type WxtStorageItem } from 'wxt/utils/storage';
 import { fixTLanguageCode } from '../languages';
-import { type Config, type ConfigKey, defaultConfig, legacyStorageKeyByConfigKey } from './schema';
+import {
+  applyConfigMigrations,
+  CONFIG_SCHEMA_VERSION,
+  type Config,
+  type ConfigKey,
+  defaultConfig,
+  legacyStorageKeyByConfigKey,
+} from './schema';
 
 /**
  * TypeScript port of the vanilla-JS extension's `twpConfig` (lib/config.js).
@@ -27,6 +34,25 @@ const DEFAULT_TARGET_LANGUAGES = ['en', 'es', 'de'];
 
 function storageKeyFor(name: ConfigKey): `local:${string}` {
   return `local:${legacyStorageKeyByConfigKey[name] ?? name}`;
+}
+
+const configSchemaVersionItem = storage.defineItem<number>('local:configSchemaVersion', { fallback: 0 });
+
+/** Runs any pending migrations against raw storage before the normal per-key loading below reads it. No-op on a fully up-to-date install (the common case) since it's gated on the stored version number. */
+async function migrateStorageIfNeeded(): Promise<void> {
+  const storedVersion = await configSchemaVersionItem.getValue();
+  if (storedVersion >= CONFIG_SCHEMA_VERSION) return;
+
+  const rawEntries = await browser.storage.local.get(null);
+  const migrated = applyConfigMigrations(rawEntries, storedVersion);
+
+  const changedEntries = Object.fromEntries(
+    Object.entries(migrated).filter(([key, value]) => rawEntries[key] !== value),
+  );
+  if (Object.keys(changedEntries).length > 0) {
+    await browser.storage.local.set(changedEntries);
+  }
+  await configSchemaVersionItem.setValue(CONFIG_SCHEMA_VERSION);
 }
 
 const items = Object.fromEntries(
@@ -61,6 +87,8 @@ for (const name of Object.keys(items) as ConfigKey[]) {
 }
 
 async function initConfig(): Promise<void> {
+  await migrateStorageIfNeeded();
+
   // Load every key's current stored value (or its fallback) into state.
   await Promise.all(
     (Object.keys(items) as ConfigKey[]).map(async (name) => {

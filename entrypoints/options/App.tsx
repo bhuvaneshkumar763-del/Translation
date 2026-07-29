@@ -3,6 +3,7 @@ import type { Config } from '@/modules/config/schema';
 import { twpConfig } from '@/modules/config/store';
 import { codeToLanguage, fixTLanguageCode, uiLanguages } from '@/modules/languages';
 import { sendMessage } from '@/modules/messaging/protocol';
+import { isProviderAvailable } from '@/modules/providers/descriptors';
 
 /**
  * The options page, ported from options/options.js + options.html.
@@ -151,6 +152,9 @@ function App() {
   const [libreKey, setLibreKey] = createSignal('');
   const [deeplKey, setDeeplKey] = createSignal('');
   const [googleProxy, setGoogleProxy] = createSignal('');
+  const [llmBaseUrl, setLlmBaseUrl] = createSignal('');
+  const [llmApiKey, setLlmApiKey] = createSignal('');
+  const [llmModel, setLlmModel] = createSignal('');
 
   onMount(() => {
     const libre = twpConfig.get('customServices').find((cs) => cs.name === 'libre');
@@ -160,6 +164,12 @@ function App() {
     }
     const deepl = twpConfig.get('customServices').find((cs) => cs.name === 'deepl_freeapi');
     if (deepl) setDeeplKey(deepl.apiKey);
+    const llm = twpConfig.get('customServices').find((cs) => cs.name === 'llm');
+    if (llm && 'baseUrl' in llm) {
+      setLlmBaseUrl(llm.baseUrl);
+      setLlmApiKey(llm.apiKey);
+      setLlmModel(llm.model);
+    }
     setGoogleProxy(twpConfig.get('proxyServers')?.google?.translateServer ?? '');
   });
 
@@ -175,6 +185,22 @@ function App() {
     const next = deeplKey().trim()
       ? [...others, { name: 'deepl_freeapi' as const, apiKey: deeplKey().trim() }]
       : others;
+    void set('customServices', next);
+  }
+  function saveLlm(): void {
+    const others = twpConfig.get('customServices').filter((cs) => cs.name !== 'llm');
+    const next =
+      llmBaseUrl().trim() && llmModel().trim()
+        ? [
+            ...others,
+            {
+              name: 'llm' as const,
+              baseUrl: llmBaseUrl().trim(),
+              apiKey: llmApiKey().trim(),
+              model: llmModel().trim(),
+            },
+          ]
+        : others;
     void set('customServices', next);
   }
   function saveGoogleProxy(): void {
@@ -272,6 +298,10 @@ function App() {
               <option value="google">Google</option>
               <option value="bing">Bing</option>
               <option value="yandex">Yandex</option>
+              <option value="llm">AI (OpenAI-compatible — configure below)</option>
+              <Show when={isProviderAvailable('builtin')}>
+                <option value="builtin">Built-in AI (on-device, this browser)</option>
+              </Show>
             </select>
           </label>
           <div class="fieldGroup">
@@ -352,6 +382,10 @@ function App() {
               <option value="yandex">Yandex</option>
               <option value="deepl">DeepL</option>
               <option value="libre">LibreTranslate</option>
+              <option value="llm">AI (OpenAI-compatible — configure below)</option>
+              <Show when={isProviderAvailable('builtin')}>
+                <option value="builtin">Built-in AI (on-device, this browser)</option>
+              </Show>
             </select>
           </label>
           <label class="check">
@@ -544,6 +578,41 @@ function App() {
         </Section>
 
         <Section title="Translation services (advanced)">
+          <div class="fieldGroup">
+            <span>AI (OpenAI-compatible — works with OpenAI, a local model server, or any compatible gateway)</span>
+            <div class="row">
+              <input
+                type="text"
+                placeholder="Base URL, e.g. https://api.openai.com/v1/chat/completions"
+                value={llmBaseUrl()}
+                on:input={(e) => setLlmBaseUrl((e.currentTarget as HTMLInputElement).value)}
+              />
+              <input
+                type="text"
+                placeholder="API key"
+                value={llmApiKey()}
+                on:input={(e) => setLlmApiKey((e.currentTarget as HTMLInputElement).value)}
+              />
+              <input
+                type="text"
+                placeholder="Model, e.g. gpt-4o-mini"
+                value={llmModel()}
+                on:input={(e) => setLlmModel((e.currentTarget as HTMLInputElement).value)}
+              />
+              <button on:click={saveLlm}>Save</button>
+            </div>
+          </div>
+          <div class="fieldGroup">
+            <span>Built-in AI (on-device)</span>
+            <div class="row">
+              <Show
+                when={isProviderAvailable('builtin')}
+                fallback={<span class="emptyHint">Not available in this browser — needs Chrome 138+.</span>}
+              >
+                <span class="emptyHint">Detected — no setup needed, translates locally with no network call.</span>
+              </Show>
+            </div>
+          </div>
           <div class="fieldGroup">
             <span>LibreTranslate (self-hosted)</span>
             <div class="row">

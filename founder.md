@@ -6,10 +6,11 @@
 > extension actually does *today*, not what it used to do.
 >
 > **Heads up if you're reading this mid-2026:** the extension is partway
-> through being rebuilt into "Prism" — a new name, a new look, and (soon) an
-> AI-powered translation engine instead of just plugging into Google/Bing/
-> etc. Some of what's described below (the two popup styles, the plain MT
-> providers) is *current* but will change over the next few sessions — see
+> through being rebuilt into "Prism" — a new name, a new look (not built
+> yet), and an AI-powered translation engine (this part *is* built now, see
+> item 2 below) alongside the classic Google/Bing/etc. options. Some of
+> what's described below (the two popup styles, the plain "pick a service"
+> UI) is *current* but will change over the next few sessions — see
 > `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` for what's
 > already landed vs. still planned. This file describes today's build, not
 > the destination.
@@ -39,7 +40,15 @@ flip it back to the original.
 It can use Google Translate, Bing Translator, Yandex Translate, DeepL, or
 LibreTranslate (a free, privacy-friendly option) under the hood. You can
 switch between them with one click if you don't like a particular
-translation.
+translation. Two newer, AI-based options exist too (set up in the advanced
+settings for now — a proper front-and-center spot for them is coming):
+  - **Your own AI** — plug in an API key for OpenAI or a compatible service,
+    and it translates with a language model instead of a plain translator,
+    which tends to handle context, tone, and tricky phrasing better.
+  - **Built-in AI** — on newer versions of Chrome, the browser itself has a
+    translator built in. If your Chrome supports it, this option needs no
+    setup, no API key, and doesn't send your text anywhere over the
+    internet at all — it all happens on your own computer.
 
 **3. A little floating "bubble" button.**
 While you're browsing, a small draggable bubble can float on the page,

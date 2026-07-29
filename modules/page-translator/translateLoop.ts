@@ -1,5 +1,7 @@
+import { getBatchingHint } from '../providers/descriptors';
 import { sendMessage } from '../messaging/protocol';
 import { createDedupeTracker } from './dedupe';
+import { groupNodesForBatching } from './grouping';
 import { createMutationWatcher } from './mutationWatcher';
 import { createResweepScheduler } from './resweep';
 
@@ -7,17 +9,20 @@ import { createResweepScheduler } from './resweep';
  * The page-translation engine: collect text nodes, batch-translate them,
  * splice results back in, and keep watching for new/changed content. Ties
  * together dedupe.ts (O(1) identity tracking), mutationWatcher.ts (childList
- * + characterData observation), and resweep.ts (the adaptive backstop) —
- * see those files for what each piece is doing and why.
+ * + characterData observation), resweep.ts (the adaptive backstop), and
+ * (Gen 2 Session 2) grouping.ts (context-batching for providers that want
+ * it) — see those files for what each piece is doing and why.
  *
  * Fidelity note: the old pageTranslator.js groups text into paragraph-level
  * "pieces" spanning multiple DOM nodes (for translation context and fewer
  * requests) and separately translates attributes (placeholder/title/alt/
- * aria-label) and the custom dictionary. This port works on individual Text
- * nodes only, with no attribute/dictionary translation yet — a deliberate
- * phase-2 scope cut (every text node still gets found and translated
- * correctly; it's a quality/efficiency gap, not a correctness one), not
- * something to silently forget about for a later pass.
+ * aria-label) and the custom dictionary. This port groups nodes the same
+ * way, but only for providers that ask for it via `descriptors.ts`'s
+ * `batchingHint` (the LLM provider — MT endpoints stay one-node-per-piece,
+ * their existing tuned behavior) — and still has no attribute/dictionary
+ * translation, a deliberate phase-2 scope cut (every text node still gets
+ * found and translated correctly; it's a quality/efficiency gap, not a
+ * correctness one), not something to silently forget about for a later pass.
  */
 
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA']);
@@ -113,23 +118,31 @@ export function createPageTranslator(options: PageTranslatorOptions) {
 
     if (pageLanguageState === 'translated' && queue.length > 0) {
       const batch = queue.splice(0, MAX_PIECES_PER_TICK);
+      // Providers that want real context (currently just the LLM one) get
+      // sibling text nodes under the same block grouped into one piece;
+      // everything else keeps today's exact one-node-per-piece shape via
+      // groupNodesForBatching's no-hint fallback.
+      const groups = groupNodesForBatching(batch, getBatchingHint(options.getService()));
       try {
         const results = await sendMessage('translateHTML', {
           translationService: options.getService(),
           sourceLanguage: options.getSourceLanguage(),
           targetLanguage: currentTargetLanguage,
-          sourceArray2d: batch.map((node) => [node.data]),
+          sourceArray2d: groups.map((group) => group.map((node) => node.data)),
           dontSortResults: options.getDontSortResults(),
         });
-        batch.forEach((node, idx) => {
-          if (!node.isConnected) return;
-          const translated = results[idx]?.[0];
-          if (translated) {
-            mutationWatcher.noteOwnWrite(node, translated);
-            node.data = translated;
-          } else {
-            noteMissingResult(node);
-          }
+        groups.forEach((group, groupIdx) => {
+          const groupResults = results[groupIdx];
+          group.forEach((node, nodeIdx) => {
+            if (!node.isConnected) return;
+            const translated = groupResults?.[nodeIdx];
+            if (translated) {
+              mutationWatcher.noteOwnWrite(node, translated);
+              node.data = translated;
+            } else {
+              noteMissingResult(node);
+            }
+          });
         });
       } catch (e) {
         console.error(e);

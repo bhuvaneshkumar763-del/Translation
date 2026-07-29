@@ -67,6 +67,12 @@ const SERVICE_LABELS: Record<Config['pageTranslatorService'], string> = {
   google: 'Google',
   bing: 'Bing',
   yandex: 'Yandex',
+  // Not in PAGE_TRANSLATION_SERVICES above (yet) — the quick-switch pill
+  // list is being deliberately curated, not every provider belongs in a
+  // one-tap surface. Entries exist so this Record type-checks against the
+  // full pageTranslatorService enum; visual placement is a Session 3 UI call.
+  llm: 'AI',
+  builtin: 'Built-in AI',
 };
 
 const BALL = 40;

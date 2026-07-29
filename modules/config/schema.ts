@@ -30,6 +30,12 @@ const customServiceSchema = z.union([
     name: z.literal('deepl_freeapi'),
     apiKey: z.string(),
   }),
+  z.object({
+    name: z.literal('llm'),
+    baseUrl: z.string(),
+    apiKey: z.string(),
+    model: z.string(),
+  }),
 ]);
 
 const bubblePosSchema = z
@@ -41,8 +47,11 @@ const bubblePosSchema = z
 
 export const configSchema = z.object({
   uiLanguage: z.string(), // "default" or a lang code
-  pageTranslatorService: z.enum(['google', 'yandex', 'bing']),
-  textTranslatorService: z.enum(['google', 'yandex', 'bing', 'deepl', 'libre']),
+  // Keep in sync by hand with modules/providers/descriptors.ts's `roles`
+  // filtered by 'page'/'text' — see that file's header comment for why this
+  // isn't derived automatically (zod literal-type inference).
+  pageTranslatorService: z.enum(['google', 'yandex', 'bing', 'llm', 'builtin']),
+  textTranslatorService: z.enum(['google', 'yandex', 'bing', 'deepl', 'libre', 'llm', 'builtin']),
   textToSpeechService: z.enum(['google', 'bing']),
   enabledServices: z.array(z.string()),
   ttsSpeed: z.number(),
@@ -186,3 +195,38 @@ export const defaultConfig: Config = {
   installDateTime: 0,
   deeplConfirmed: 'no',
 };
+
+/**
+ * Config versioning, introduced in Session 2 of the Gen 2 rebuild (see the
+ * plan file) — there was no migration system at all before this. The
+ * storage shape is per-key (see store.ts's header comment), not one blob,
+ * so most additive/rename changes already self-migrate for free via each
+ * item's `fallback` and `legacyStorageKeyByConfigKey`. This exists for the
+ * cases that don't: a stored value whose *shape* changed (not just renamed)
+ * or an enum value that was removed/renamed out from under existing
+ * installs. Nothing needs migrating yet — this session's own schema changes
+ * (new `llm` customServiceSchema variant, new enum entries) are purely
+ * additive — so `configMigrations` ships empty. Add to it, and bump
+ * `CONFIG_SCHEMA_VERSION`, the next time a change actually needs one.
+ */
+export const CONFIG_SCHEMA_VERSION = 1;
+
+export interface ConfigMigration {
+  /** The schema version this migration upgrades stored data TO. */
+  toVersion: number;
+  /** Rewrites raw chrome.storage.local entries (keyed by storage key, e.g. `translateTag_pre`, not necessarily the current config key name) in place. Only touch what needs changing — everything else passes through the normal per-key fallback/legacy-name loading untouched. */
+  migrate(rawEntries: Record<string, unknown>): Record<string, unknown>;
+}
+
+export const configMigrations: ConfigMigration[] = [];
+
+/** Applies every migration whose `toVersion` is above `storedVersion`, in ascending order. Pure — no storage I/O — so it's directly unit-testable; store.ts is responsible for reading/writing the actual chrome.storage.local entries and the version marker around this call. */
+export function applyConfigMigrations(
+  rawEntries: Record<string, unknown>,
+  storedVersion: number,
+): Record<string, unknown> {
+  return configMigrations
+    .filter((m) => m.toVersion > storedVersion)
+    .sort((a, b) => a.toVersion - b.toVersion)
+    .reduce((entries, m) => m.migrate(entries), rawEntries);
+}

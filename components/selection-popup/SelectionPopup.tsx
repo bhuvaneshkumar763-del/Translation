@@ -41,6 +41,10 @@ const SERVICE_LABELS: Record<Config['textTranslatorService'], string> = {
   yandex: 'Y',
   deepl: 'D',
   libre: 'L',
+  // Not in PAGE_TEXT_SERVICES above (yet) — curated placement is a Session 3
+  // UI call, this Record just needs to type-check against the full enum.
+  llm: 'AI',
+  builtin: 'BI',
 };
 
 let isPlayingAudioGlobal = false;

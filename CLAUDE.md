@@ -84,6 +84,75 @@ with `noUncheckedIndexedAccess: true` newly biting in ~20 places across
 for the commit. If a future `wxt` bump does this again, same drill: don't
 suppress, handle the real possibly-empty-array/match case.
 
+**Gen 2 rebuild — Session 2 (Engine mechanics + provider architecture) is
+complete.** What landed:
+- `modules/providers/descriptors.ts`: single source of truth for what
+  providers exist and what they can do (roles, key requirement, feature-
+  detection, batching hint). `registry.ts`'s dispatch and gating now derive
+  from it. `schema.ts`'s three service enums are still hand-maintained
+  literal tuples on purpose — see that file's header comment for why
+  deriving them loses zod's literal-type inference.
+- `modules/providers/llm.ts`: OpenAI-compatible chat-completions provider
+  (base URL/key/model, all user-supplied). Extends the shared `Service`
+  class rather than a bespoke request loop. Sends numbered segments in one
+  prompt, expects a JSON array of translations back, and joins/splits
+  multi-string pieces (grouped nodes) with a U+241F separator so the
+  response round-trips back to the right DOM nodes.
+- `modules/providers/builtin.ts`: on-device translation via Chrome's
+  `Translator`/`LanguageDetector` APIs, feature-detected
+  (`typeof Translator !== 'undefined'`). **Verified against the real API**,
+  not just mocked — Playwright's bundled Chromium (v151+) genuinely has
+  `Translator.availability()` and it correctly returns `'downloadable'` for
+  an untested language pair. No API key, no `customServices` entry.
+- `modules/page-translator/grouping.ts`: groups sibling text nodes sharing
+  a block ancestor into one piece for providers with a `batchingHint`
+  (currently just `llm`) — extracted from `translateLoop.ts` as its own
+  pure(-ish) function specifically so it's unit-testable (see Testing).
+  MT providers and `builtin` keep today's exact one-node-per-piece shape.
+- `modules/providers/types.ts`'s `Service.handleRequest` now retries a
+  single piece individually (once) if a batch response comes back short —
+  "checking," benefits every `Service`-based provider, matters most for
+  the LLM path where truncated/malformed JSON is a real risk.
+- Config versioning (`CONFIG_SCHEMA_VERSION`/`configMigrations`/
+  `applyConfigMigrations` in `schema.ts`, wired into `store.ts`'s
+  `initConfig`) — infrastructure only, `configMigrations` ships empty since
+  this session's own schema changes were purely additive. Add to it (and
+  bump the version) the next time a stored value's *shape* changes, not
+  just its allowed values.
+- Options page: functional (not yet restyled — Session 3) fields for the
+  LLM provider and an availability indicator for the on-device one, plus
+  both added as real, selectable options in the page/text translator
+  service dropdowns. The 6 other UI files with per-provider `Record`/array
+  literals (bubble, hover-tooltip ×1, selection-popup, old-popup, popup,
+  translate-text) got minimal `llm`/`builtin` label entries added just to
+  keep those `Record<Config['...Service'], string>` types satisfied — they
+  are **not** in the curated quick-switch service lists yet; that's a
+  Session 3/4 UI call, not an oversight.
+- **Real end-to-end verification, not just unit tests**: a scratch
+  Playwright run (local mock LLM HTTP server + local static test page,
+  same pattern as the "Testing" section below) confirmed the full pipeline
+  — content-script DOM collection → block-boundary grouping (2 separate
+  `<p>` elements correctly sent as 2 separate numbered segments, not
+  merged) → `sendMessage`/`onMessage` → `registry.ts` → `llm.ts`'s real
+  HTTP request in the correct format → response parsed → DOM updated with
+  the translated text. Not committed as a permanent test (ad hoc, matches
+  the established pattern for real round-trip checks — see "Testing"), but
+  it ran and passed.
+- **Streaming decision (the plan's "Speed" task)**: not implemented.
+  `llm.ts` asks the model for one JSON array covering the whole batch, so
+  a token stream would arrive as an incomplete/invalid JSON document until
+  the very end — reconstructing partial per-piece results from that
+  reliably would need meaningfully more parsing complexity than the payoff
+  justifies right now. Revisit if a future session redesigns the prompt/
+  response contract around a streamable format (e.g. one JSON object per
+  line, flushed as each segment completes).
+- New dev dependencies: `playwright` (Session 1), `fake-indexeddb`
+  (polyfills `indexedDB` so `Service`/`translationCache`-touching code is
+  testable in Vitest's Node environment) and `happy-dom` (real DOM for
+  `grouping.ts`'s block-ancestor-walking tests, via a per-file
+  `// @vitest-environment happy-dom` pragma — the main suite stays on the
+  faster `node` environment by default).
+
 ## Known gaps / next things to look at
 
 - **`entrypoints/old-popup/` still exists.** It's slated for full deletion
@@ -118,16 +187,20 @@ entrypoints/         WXT entrypoints — one per browser-visible surface
 modules/              framework-agnostic domain logic, imported by entrypoints
   config/                zod schema + chrome.storage.local-backed store
                          (schema.ts mirrors the old defaultConfig 1:1 — same
-                         ~45 keys, no migration, no renames)
+                         ~45 keys, plus a versioning/migration system added
+                         in Gen 2 Session 2 — see CONFIG_SCHEMA_VERSION)
   messaging/             protocol.ts (discriminated-union message contracts,
                          via @webext-core/messaging) + tabTarget.ts (shared
                          mainFrameTarget/pageActionTarget helpers — see below)
   providers/             google.ts, bing.ts, yandex.ts, deepl.ts, libre.ts,
-                         registry.ts, types.ts
+                         llm.ts, builtin.ts, descriptors.ts (provider
+                         capability registry), registry.ts, types.ts
   cache/                 IndexedDB translation cache, size-budgeted eviction
   tts/                   offscreen-document client/player
-  page-translator/       translateLoop.ts, dedupe, resweep, mutation watcher —
-                         the highest-risk, most perf-sensitive code in the repo
+  page-translator/       translateLoop.ts, dedupe, resweep, mutation watcher,
+                         grouping.ts (block-context batching for providers
+                         that want it) — the highest-risk, most
+                         perf-sensitive code in the repo
   languages/             generated language-name tables + code-fixing helpers
   hover/, selection/, platform/
 
@@ -185,6 +258,16 @@ calling anything done:
 1. `npm run compile` (`tsc --noEmit`) — must be clean.
 2. `npm test` (Vitest, `modules/**/*.test.ts`) — unit tests for
    framework-agnostic logic. Add tests here for new pure-logic modules.
+   `tests/setup.ts` polyfills `indexedDB` (via `fake-indexeddb/auto`) for
+   the whole suite, so code that imports `modules/cache/translationCache.ts`
+   (directly, or transitively via `Service` in `modules/providers/types.ts`)
+   is testable without a browser — `modules/providers/types.test.ts` and
+   `llm.test.ts` exercise real `Service.translate()` calls this way, with
+   `global.fetch` mocked rather than the network itself. For DOM-dependent
+   logic (currently just `grouping.ts`, which walks real `parentElement`
+   chains), add `// @vitest-environment happy-dom` as the first line of
+   that test file rather than switching the whole suite's default
+   environment — most tests don't need a DOM and `node` is faster.
 3. `npm run build` / `npm run build:firefox` — must succeed; check the
    output file list for expected entrypoint HTML/JS/CSS.
 4. **After adding a new entrypoint folder**, run `npx wxt prepare` — this

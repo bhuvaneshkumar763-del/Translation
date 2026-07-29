@@ -28,6 +28,21 @@ jobs:
       - name: Build extension
         run: npm run build
 
+      - name: Bundle-size guardrail
+        # Generous placeholder threshold (2x today's ~2.3MB) — the point is
+        # to catch a session's UI work silently bloating the build, not to
+        # be a precise budget yet. Tightened in a later Gen 2 session once
+        # the redesigned UI's real size is known.
+        run: |
+          SIZE_BYTES=$(du -sk .output/chrome-mv3 | cut -f1)
+          SIZE_BYTES=$((SIZE_BYTES * 1024))
+          THRESHOLD_BYTES=$((5 * 1024 * 1024))
+          echo "chrome-mv3 build size: $((SIZE_BYTES / 1024)) KB (threshold: $((THRESHOLD_BYTES / 1024)) KB)"
+          if [ "$SIZE_BYTES" -gt "$THRESHOLD_BYTES" ]; then
+            echo "::error::Build size exceeded the guardrail threshold — investigate what grew before merging."
+            exit 1
+          fi
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

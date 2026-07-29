@@ -23,6 +23,10 @@ const SERVICE_LABELS: Record<Config['textTranslatorService'], string> = {
   yandex: 'Yandex',
   deepl: 'DeepL',
   libre: 'LibreTranslate',
+  // Not in SERVICES above (yet) — surfacing these in this window is a
+  // Session 3/4 UI call, this Record just needs to type-check.
+  llm: 'AI (OpenAI-compatible)',
+  builtin: 'Built-in AI',
 };
 
 function effectiveUiLanguage(): string {

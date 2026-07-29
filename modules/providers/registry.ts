@@ -1,33 +1,49 @@
 import type { Config } from '../config/schema';
 import { twpConfig } from '../config/store';
 import { bingService } from './bing';
+import { builtinService } from './builtin';
 import { createDeeplFreeApiService, deeplService } from './deepl';
+import { getProviderDescriptor } from './descriptors';
 import { googleService } from './google';
 import { createLibreService } from './libre';
+import { createLlmService } from './llm';
 import type { TranslationProvider } from './types';
 import { yandexService } from './yandex';
 
 /**
  * All translation providers. `getSafeServiceByName` mirrors the old code's
  * gating: a service is only usable if it's in `enabledServices` (the
- * built-in 4) or registered as a `customServices` entry (libre/deepl_freeapi)
- * — ported from `getSafeServiceByName` in background/translationService.js.
+ * built-in 4) or registered as a `customServices` entry (libre/deepl_freeapi/
+ * llm) — ported from `getSafeServiceByName` in background/translationService.js
+ * — or, for a feature-detected provider like `builtin`, if it's actually
+ * present in this browser (see `descriptors.ts`). Provider *capability*
+ * metadata (roles, whether a key is required, feature-detection) lives in
+ * `descriptors.ts`; this file is just wiring + config-driven instantiation.
  */
 export const serviceList = new Map<string, TranslationProvider>([
   ['google', googleService],
   ['bing', bingService],
   ['yandex', yandexService],
   ['deepl', deeplService],
+  ['builtin', builtinService],
 ]);
 
 function getSafeServiceByName(serviceName: string): TranslationProvider | null {
+  const descriptor = getProviderDescriptor(serviceName);
+  if (descriptor?.isAvailable && !descriptor.isAvailable()) return null;
+
+  // Feature-detected providers (currently just `builtin`) are gated purely
+  // on that check above — they're not part of the enabledServices checkbox
+  // list or customServices (no key to configure), so skip the rest.
+  if (descriptor?.isAvailable) return serviceList.get(serviceName) ?? null;
+
   const enabled = twpConfig.get('enabledServices').includes(serviceName);
   const isCustom = twpConfig.get('customServices').some((cs) => cs.name === serviceName);
   if (!enabled && !isCustom) return null;
   return serviceList.get(serviceName) ?? null;
 }
 
-/** Register libre/deepl_freeapi from config on startup, and keep Google's proxy override + custom services in sync as the options page edits them. */
+/** Register libre/deepl_freeapi/llm from config on startup, and keep Google's proxy override + custom services in sync as the options page edits them. */
 export function initProviderRegistry(): void {
   twpConfig.onReady(() => {
     applyCustomServices(twpConfig.get('customServices'));
@@ -56,6 +72,13 @@ function applyCustomServices(customServices: Config['customServices']): void {
     serviceList.set('deepl', createDeeplFreeApiService(deeplFreeApi.apiKey));
   } else {
     serviceList.set('deepl', deeplService);
+  }
+
+  const llm = customServices.find((cs) => cs.name === 'llm');
+  if (llm && 'baseUrl' in llm) {
+    serviceList.set('llm', createLlmService(llm.baseUrl, llm.apiKey, llm.model));
+  } else {
+    serviceList.delete('llm');
   }
 }
 

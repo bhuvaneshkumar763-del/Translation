@@ -299,16 +299,24 @@ export class Service {
     let inFlight = 0;
     let cursor = 0;
 
-    const handleRequest = async (request: TranslationInfo[]) => {
+    // "Checking": a provider (especially an LLM one — truncation/malformed
+    // JSON is a real risk in a way it basically never is for a plain MT
+    // endpoint) can return fewer results than pieces sent. Rather than
+    // failing those pieces outright or the whole batch, retry just the
+    // missing ones individually once before giving up — a single bad slot
+    // in an otherwise-fine batch response shouldn't cost the whole batch a
+    // retry, and a piece that fails alone too is a real, not transient,
+    // problem worth marking as an error.
+    const handleRequest = async (request: TranslationInfo[], isIndividualRetry = false): Promise<void> => {
       try {
         const response = await this.makeRequest(sourceLanguage, targetLanguage, request);
         const results = this.callbacks.cbParseResponse(response);
+        const missing: TranslationInfo[] = [];
+
         request.forEach((info, idx) => {
           const result = results[idx];
           if (!result) {
-            // Provider returned fewer results than pieces sent — a malformed/
-            // truncated response, not something to silently paper over.
-            info.status = 'error';
+            missing.push(info);
             return;
           }
           info.detectedLanguage = result.detectedLanguage || 'und';
@@ -326,6 +334,15 @@ export class Service {
             );
           }
         });
+
+        if (missing.length === 0) return;
+        if (isIndividualRetry) {
+          missing.forEach((info) => {
+            info.status = 'error';
+          });
+          return;
+        }
+        await Promise.all(missing.map((info) => handleRequest([info], true)));
       } catch (e) {
         console.error(e);
         request.forEach((info) => {

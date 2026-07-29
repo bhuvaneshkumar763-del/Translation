@@ -52,45 +52,44 @@ this file go stale the way the old `CHANGELOG.md` did.
 This is where gen-2-vs-gen-1 should actually show, not just parity with a
 newer skeleton.
 
-7. **An LLM-based translation provider.** Every current provider
-   (`modules/providers/{google,bing,yandex,deepl,libre}.ts`) is either a
-   reverse-engineered free endpoint or a plain MT API — none are
-   context-aware. A provider backed by an LLM (glossary-aware, tone/
-   register control, whole-paragraph context instead of sentence-by-
-   sentence) would be a genuine capability jump, not just a rewrite in a
-   new language. `customDictionary` (`schema.ts:59`) already exists as a
-   flat glossary map — a natural hook for prompt-injected glossary terms.
-8. **Reduce reliance on unofficial endpoints.** Google/Bing/Yandex here are
-   scraped/reverse-engineered, which is inherently fragile (breaks
-   whenever the provider changes internals — this is exactly the kind of
-   thing the old extension's history is full of patches for) and sits in
-   ToS gray area. Adding official API-key-based options (Google Cloud
-   Translation, Azure Translator, DeepL's real API) as first-class,
-   documented alternatives — alongside the free ones, not replacing them —
-   trades a little user setup friction for real reliability.
-9. **Cross-device settings sync.** Config is `chrome.storage.local` only
+7. ✅ **DONE (Session 2).** LLM-based translation provider
+   (`modules/providers/llm.ts`, OpenAI-compatible) plus a bonus not
+   originally in this list: an on-device provider
+   (`modules/providers/builtin.ts`, Chrome's built-in Translator API —
+   found via research during Session 2's planning, not part of the
+   original audit). Both are context/batch-aware via the new
+   `grouping.ts`/batching-hint mechanism, not sentence-by-sentence.
+   `customDictionary` glossary-injection into the LLM prompt is **not**
+   done yet — a real follow-up, not silently dropped.
+8. **Reduce reliance on unofficial endpoints.** Still open. Google/Bing/
+   Yandex here are scraped/reverse-engineered, which is inherently fragile
+   (breaks whenever the provider changes internals — this is exactly the
+   kind of thing the old extension's history is full of patches for) and
+   sits in ToS gray area. The new `llm`/`builtin` providers are official-
+   API-based alternatives, but the specific asks here (Google Cloud
+   Translation, Azure Translator, DeepL's real API as first-class options)
+   aren't done.
+9. **Cross-device settings sync.** Still open, planned for Session 4 of the
+   Gen 2 plan. Config is `chrome.storage.local` only
    (`modules/config/store.ts:9-11`) — a user's target languages, glossary,
    and site rules don't follow them to another machine. `chrome.storage.sync`
    (with its stricter quota) is the low-effort version; a real account/sync
    backend is the ambitious version.
-10. **A real provider plugin architecture.** `registry.ts`'s `serviceList`
-    is a hardcoded `Map`, and `schema.ts` has three separate hand-maintained
-    `z.enum([...])` lists (`pageTranslatorService`, `textTranslatorService`,
-    `textToSpeechService`) that must all be edited to add one provider.
-    Worth collapsing to a single provider-capability registry so adding
-    provider #6 (especially an LLM one) doesn't mean surgery across 4 files.
+10. ✅ **DONE (Session 2).** Provider capability registry —
+    `modules/providers/descriptors.ts`. `registry.ts`'s dispatch/gating now
+    derives from it; `schema.ts`'s three service enums are still
+    hand-maintained by design (see that file's header comment).
 
 ## Tier 4 — Foundational hygiene (makes everything above cheaper)
 
 11. ✅ **DONE (Session 1).** Biome added (`npm run lint`/`lint:fix`).
     Pre-existing findings in files slated for Session 3-4 rewrites were left
     untouched on purpose — see `CLAUDE.md`'s "Current status".
-12. **Config migration/versioning.** `schema.ts` mirrors the old
-    extension's ~45 keys 1:1 with **no migration system at all**
-    (`schema.ts:7`, `:16`). Every future schema change inherits the same
-    "no migration, ever" debt the old code left behind. Worth adding
-    versioning now, while the schema is still simple, not after Tier 3
-    changes make it bigger.
+12. ✅ **DONE (Session 2).** Config migration/versioning —
+    `CONFIG_SCHEMA_VERSION`/`configMigrations`/`applyConfigMigrations` in
+    `schema.ts`, wired into `store.ts`. Ships with zero real migrations
+    (this session's schema changes were purely additive) — infrastructure
+    for the next change that isn't, not a completed migration itself.
 13. **Verify cross-browser builds in CI.** `build:firefox` exists in
     `package.json` but isn't validated anywhere automated; Safari isn't
     addressed at all. Decide deliberately which browsers are real targets.
