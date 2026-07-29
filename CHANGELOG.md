@@ -18,21 +18,26 @@ losing settings.
   network on every mutation.
 - The floating translate bubble, rebuilt with a modern draggable-card UI.
 
+**Update:** the old-popup alternate UI and the three standalone windows
+(`translate-text`, `translate-document`, `improve-translation`) — originally
+deferred (see below) — have since been built. See `git log` for that work.
+The `useOldPopup` config key correctly swaps the toolbar popup between the
+new and old skins at runtime, same as the pre-rewrite code's
+`resetBrowserAction`.
+
 **Deliberately not carried over, with reasoning kept in the code/commit
 history for each:**
-- The old-popup alternate UI (`popup/old-popup.*`) — a legacy visual skin,
-  not distinct functionality; the new popup covers the same actions.
-- The three standalone windows (`popup/popup-translate-text.*`,
-  `popup/popup-translate-document.*`, `popup/improve-translation.*`) —
-  lower-value auxiliary windows than the popup/options surfaces that got
-  built first. Their source is kept in the repo as reference for whoever
-  picks this up.
 - A handful of upstream-project-specific integrations tied to the original
   author's own hosted services (the PDF-viewer webapp at
   `pdf.translatewebpages.org`, Patreon/donation links) — not general
   extension functionality.
 - Toolbar-icon state changes reflecting translated/original (the old
   `icon-32-translated.png` swap) — a small cosmetic gap, not yet wired up.
+
+*(Originally deferred, now built: the old-popup alternate UI at
+`popup/old-popup.*` — a legacy visual skin some users prefer over the new
+popup — and the three standalone windows `popup/popup-translate-text.*`,
+`popup/popup-translate-document.*`, `popup/improve-translation.*`.)*
 
 See the git history on this rewrite for the phase-by-phase breakdown (config
 + messaging skeleton, each translation provider, the page-translation engine,
