@@ -22,7 +22,7 @@ export default defineConfig({
       128: '/icons/icon-128.png',
     },
     host_permissions: ['<all_urls>'],
-    permissions: ['activeTab', 'storage', 'contextMenus', 'webRequest', 'offscreen'],
+    permissions: ['activeTab', 'storage', 'contextMenus', 'webRequest', 'offscreen', 'alarms'],
     optional_permissions: ['webNavigation'],
     options_ui: {
       open_in_tab: true,

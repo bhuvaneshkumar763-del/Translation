@@ -54,6 +54,19 @@ export default defineContentScript({
     onMessage('restorePage', () => {
       pageTranslator.restorePage();
     });
+    // The toolbar icon, hotkey-toggle-translation, and the "translate page"
+    // context-menu item all funnel through this — each frame that receives
+    // it (main frame only, or every frame, depending on
+    // enableIframePageTranslation — background.ts decides which) toggles
+    // based on its own current state, matching the old code's
+    // "toggle-translation" action.
+    onMessage('toggleTranslation', async () => {
+      if (pageTranslator.getState() === 'translated') {
+        pageTranslator.restorePage();
+      } else {
+        await pageTranslator.translatePage(twpConfig.get('targetLanguage') ?? 'en');
+      }
+    });
 
     const originalLanguage = createOriginalLanguageTracker();
     const originalLanguageReady = originalLanguage.start();

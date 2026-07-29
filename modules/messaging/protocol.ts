@@ -105,15 +105,21 @@ export interface ProtocolMap {
   getOriginalTabLanguage(): string;
   swapTranslationService(): string;
 
-  // Filled in during Phase 6 (later): authorizationToOpenOptions,
-  // improveTranslation.
-  //
-  // Filled in during Phase 7: restorePagesWithServiceNames, getTabMimeType,
-  // autoTranslateBecauseClickedALink, getCacheSize, deleteTranslationCache,
-  // contentScriptIsInjected, cleanUp.
-  //
-  // Filled in during Phase 7: getCacheSize, deleteTranslationCache,
-  // contentScriptIsInjected, cleanUp.
+  // --- Phase 7: cache, commands ---
+  // options page -> background
+  getCacheSize(): string;
+  deleteTranslationCache(data?: { reload?: boolean }): void;
+  // background -> content script (tab-targeted), for the
+  // hotkey-toggle-translation command and the "translate this page"
+  // context-menu item, both of which need to decide translate-vs-restore
+  // themselves rather than the caller guessing.
+  toggleTranslation(): void;
+
+  // Not ported this phase: authorizationToOpenOptions, improveTranslation
+  // (both belong to the standalone windows deferred in Phase 6),
+  // restorePagesWithServiceNames, getTabMimeType,
+  // autoTranslateBecauseClickedALink (PDF-viewer/link-click features not
+  // built in this rewrite yet), contentScriptIsInjected, cleanUp.
 }
 
 export const { sendMessage, onMessage } = defineExtensionMessaging<ProtocolMap>();

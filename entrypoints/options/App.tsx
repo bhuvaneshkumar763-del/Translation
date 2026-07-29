@@ -1,5 +1,6 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
 import { twpConfig } from '@/modules/config/store';
+import { sendMessage } from '@/modules/messaging/protocol';
 import { uiLanguages, codeToLanguage, fixTLanguageCode } from '@/modules/languages';
 import type { Config } from '@/modules/config/schema';
 
@@ -176,6 +177,16 @@ function App() {
     if (confirm('Reset all settings to their defaults? This reloads the extension.')) {
       void twpConfig.restoreToDefault();
     }
+  }
+
+  const [cacheSize, setCacheSize] = createSignal<string | null>(null);
+  function refreshCacheSize(): void {
+    setCacheSize('Calculating…');
+    void sendMessage('getCacheSize', undefined).then(setCacheSize);
+  }
+  function clearCache(): void {
+    if (!confirm('Delete all cached translations?')) return;
+    void sendMessage('deleteTranslationCache', undefined).then(() => setCacheSize('0 B'));
   }
 
   return (
@@ -485,6 +496,24 @@ function App() {
               />
               <button on:click={saveGoogleProxy}>Save</button>
             </div>
+          </div>
+        </Section>
+
+        <Section title="Disk cache">
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={twpConfig.get('enableDiskCache') === 'yes'}
+              on:change={(e) => void set('enableDiskCache', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')}
+            />
+            Cache translations on disk (persists across restarts, reduces repeat requests)
+          </label>
+          <div class="row">
+            <span>{cacheSize() ?? 'Size unknown'}</span>
+            <button on:click={refreshCacheSize}>Check size</button>
+            <button class="dangerBtn" on:click={clearCache}>
+              Clear cache
+            </button>
           </div>
         </Section>
 

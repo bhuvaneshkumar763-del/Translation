@@ -1,21 +1,90 @@
 import { twpConfig } from '@/modules/config/store';
 import { translationService, initProviderRegistry } from '@/modules/providers/registry';
 import { initTextToSpeech } from '@/modules/tts/offscreenClient';
+import { translationCache } from '@/modules/cache/translationCache';
 import { onMessage, sendMessage } from '@/modules/messaging/protocol';
 
 /**
  * Background: config init + the message router for translation (Google/
  * Bing/Yandex/DeepL — LibreTranslate and DeepL-free-API register themselves
  * from stored config via initProviderRegistry) and text-to-speech (relayed
- * to the offscreen document), plus a minimal toolbar-icon trigger standing
- * in for the real popup (Phase 6). Ported from background/background.js +
- * background/translationService.js's chrome.runtime.onMessage router — most
- * of background.js's other responsibilities (context menus, commands,
- * tab-icon state, the useOldPopup swap) are NOT here yet, see later phases.
+ * to the offscreen document), the toolbar-icon click, context menus,
+ * keyboard commands, and a chrome.alarms-based keepalive. Ported from
+ * background/background.js + background/translationService.js's
+ * chrome.runtime.onMessage router.
  */
+
 /** Per-tab cache so subframes can learn the main frame's detected language/translation state without redetecting it themselves. Cleared as tabs close. */
 const tabLanguageByTabId = new Map<number, string>();
 const tabPageStateByTabId = new Map<number, 'original' | 'translated'>();
+
+/** Sends the toggle to the main frame only, or every frame, depending on enableIframePageTranslation — matches the old code's sendToggleTranslationMessage. */
+function toggleTranslationForTab(tabId: number): void {
+  const target = twpConfig.get('enableIframePageTranslation') === 'yes' ? tabId : { tabId, frameId: 0 };
+  void sendMessage('toggleTranslation', undefined, target).catch(() => {});
+}
+
+const CONTEXT_MENU_IDS = {
+  translatePage: 'translate-web-page',
+  translateRestoreThisFrame: 'translate-restore-this-frame',
+  translateSelectedText: 'translate-selected-text',
+  showPopup: 'browserAction-showPopup',
+  neverTranslate: 'never-translate',
+  moreOptions: 'more-options',
+} as const;
+
+function updatePageContextMenu(pageLanguageState: 'original' | 'translated' = 'original'): void {
+  if (!browser.contextMenus) return;
+
+  const title =
+    pageLanguageState === 'translated'
+      ? 'Show original'
+      : `Translate to ${twpConfig.get('targetLanguage') ?? 'target language'}`;
+
+  browser.contextMenus.remove(CONTEXT_MENU_IDS.translatePage).catch(() => {});
+  browser.contextMenus.remove(CONTEXT_MENU_IDS.translateRestoreThisFrame).catch(() => {});
+
+  const documentUrlPatterns = ['http://*/*', 'https://*/*', 'file://*/*', 'ftp://*/*'];
+
+  if (twpConfig.get('showTranslatePageContextMenu') === 'yes') {
+    if (twpConfig.get('enableIframePageTranslation') === 'yes') {
+      browser.contextMenus.create({ id: CONTEXT_MENU_IDS.translatePage, title, contexts: ['page', 'frame'], documentUrlPatterns });
+    } else {
+      browser.contextMenus.create({ id: CONTEXT_MENU_IDS.translatePage, title, contexts: ['page'], documentUrlPatterns });
+    }
+  }
+
+  if (twpConfig.get('enableIframePageTranslation') !== 'yes') {
+    browser.contextMenus.create({
+      id: CONTEXT_MENU_IDS.translateRestoreThisFrame,
+      title: 'Translate/restore this frame',
+      contexts: ['frame'],
+      documentUrlPatterns: ['http://*/*', 'https://*/*'],
+    });
+  }
+}
+
+function updateSelectedTextContextMenu(): void {
+  if (!browser.contextMenus) return;
+  browser.contextMenus.remove(CONTEXT_MENU_IDS.translateSelectedText).catch(() => {});
+  if (twpConfig.get('showTranslateSelectedContextMenu') === 'yes') {
+    browser.contextMenus.create({
+      id: CONTEXT_MENU_IDS.translateSelectedText,
+      title: 'Translate selected text',
+      contexts: ['selection'],
+    });
+  }
+}
+
+function updateActionContextMenu(): void {
+  if (!browser.contextMenus) return;
+  browser.contextMenus.remove(CONTEXT_MENU_IDS.showPopup).catch(() => {});
+  browser.contextMenus.remove(CONTEXT_MENU_IDS.neverTranslate).catch(() => {});
+  browser.contextMenus.remove(CONTEXT_MENU_IDS.moreOptions).catch(() => {});
+  browser.contextMenus.create({ id: CONTEXT_MENU_IDS.showPopup, title: 'Show popup', contexts: ['action'] });
+  browser.contextMenus.create({ id: CONTEXT_MENU_IDS.neverTranslate, title: 'Never translate this site', contexts: ['action'] });
+  browser.contextMenus.create({ id: CONTEXT_MENU_IDS.moreOptions, title: 'More options', contexts: ['action'] });
+}
 
 export default defineBackground(() => {
   twpConfig.onReady(() => {
@@ -24,9 +93,35 @@ export default defineBackground(() => {
     // some platforms give content scripts a different (spoofed/overridden)
     // user agent than the browser's real one.
     void twpConfig.set('originalUserAgent', navigator.userAgent);
+
+    updatePageContextMenu();
+    updateSelectedTextContextMenu();
+    updateActionContextMenu();
+
+    twpConfig.onChanged((name) => {
+      if (name === 'showTranslateSelectedContextMenu') updateSelectedTextContextMenu();
+      else if (name === 'showTranslatePageContextMenu' || name === 'enableIframePageTranslation' || name === 'targetLanguage') {
+        updatePageContextMenu();
+      }
+    });
   });
   initProviderRegistry();
   initTextToSpeech();
+
+  // A lightweight chrome.alarms-based keepalive — the old code had none (a
+  // real gap under MV3's ~30s service-worker idle timeout). This is on top
+  // of, not instead of, modules/providers/types.ts's task-scoped
+  // swKeepAlive (which pings more aggressively but only while a translation
+  // batch is actually in flight); this one just keeps the worker generally
+  // more available between actions.
+  browser.alarms.create('twp-keepalive', { periodInMinutes: 0.5 });
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'twp-keepalive') {
+      // The wake itself is the point; touch a trivial API so this isn't an
+      // entirely empty handler.
+      void browser.runtime.getPlatformInfo().catch(() => {});
+    }
+  });
 
   browser.tabs.onRemoved.addListener((tabId) => {
     tabLanguageByTabId.delete(tabId);
@@ -64,6 +159,7 @@ export default defineBackground(() => {
   onMessage('reportMainFramePageLanguageState', (message) => {
     const tabId = message.sender.tab?.id;
     if (tabId != null) tabPageStateByTabId.set(tabId, message.data.state);
+    if (tabId != null) updatePageContextMenu(message.data.state);
   });
   onMessage('getMainFramePageLanguageState', (message) => {
     const tabId = message.sender.tab?.id;
@@ -77,29 +173,87 @@ export default defineBackground(() => {
       sourceLanguage,
       targetLanguage,
       sourceArray2d,
-      // Disk cache isn't ported yet (Phase 7) — the in-memory placeholder in
-      // modules/cache/translationCache.ts is used regardless of this flag.
-      true,
+      twpConfig.get('enableDiskCache') !== 'yes',
       dontSortResults,
     );
   });
 
   onMessage('openOptionsPage', () => {
-    // Stub until Phase 6 registers manifest.options_ui — harmlessly
-    // no-ops/rejects until then rather than pointing at a path that
-    // doesn't exist yet.
     browser.runtime.openOptionsPage().catch(() => {});
   });
 
-  // Minimal translate/restore toggle via the toolbar icon, standing in for
-  // the real popup (Phase 6) and the old code's translateClickingOnce path.
-  browser.action.onClicked.addListener(async (tab) => {
+  onMessage('getCacheSize', () => translationCache.calculateSize());
+  onMessage('deleteTranslationCache', (message) => translationCache.deleteAll(message.data?.reload));
+
+  browser.action.onClicked.addListener((tab) => {
     if (!tab.id) return;
-    const state = await sendMessage('getCurrentPageLanguageState', undefined, tab.id).catch(() => 'original' as const);
-    if (state === 'translated') {
-      await sendMessage('restorePage', undefined, tab.id);
-    } else {
-      await sendMessage('translatePage', { targetLanguage: twpConfig.get('targetLanguage') ?? undefined }, tab.id);
+    toggleTranslationForTab(tab.id);
+  });
+
+  if (browser.contextMenus) {
+    browser.contextMenus.onClicked.addListener((info, tab) => {
+      if (!tab?.id) return;
+      switch (info.menuItemId) {
+        case CONTEXT_MENU_IDS.translatePage:
+          toggleTranslationForTab(tab.id);
+          break;
+        case CONTEXT_MENU_IDS.translateRestoreThisFrame:
+          void sendMessage('toggleTranslation', undefined, { tabId: tab.id, frameId: info.frameId }).catch(() => {});
+          break;
+        case CONTEXT_MENU_IDS.translateSelectedText:
+          void sendMessage('TranslateSelectedText', undefined, tab.id).catch(() => {});
+          break;
+        case CONTEXT_MENU_IDS.showPopup:
+          browser.action.openPopup?.().catch(() => {});
+          break;
+        case CONTEXT_MENU_IDS.neverTranslate:
+          if (tab.url) {
+            try {
+              void twpConfig.addSiteToNeverTranslate(new URL(tab.url).hostname);
+            } catch {
+              // ignore unparseable tab URLs
+            }
+          }
+          break;
+        case CONTEXT_MENU_IDS.moreOptions:
+          browser.runtime.openOptionsPage().catch(() => {});
+          break;
+      }
+    });
+  }
+
+  browser.commands.onCommand.addListener((command, tab) => {
+    const tabId = tab?.id;
+    if (tabId == null) return;
+    switch (command) {
+      case 'hotkey-toggle-translation':
+        toggleTranslationForTab(tabId);
+        break;
+      case 'hotkey-translate-selected-text':
+        void sendMessage('TranslateSelectedText', undefined, tabId).catch(() => {});
+        break;
+      case 'hotkey-hot-translate-selected-text':
+        void sendMessage('hotTranslateSelectedText', undefined, tabId).catch(() => {});
+        break;
+      case 'hotkey-swap-page-translation-service':
+        // content-main.content.ts's handler does the actual
+        // twpConfig.swapPageTranslationService() call + retranslate.
+        void sendMessage('swapTranslationService', undefined, tabId).catch(() => {});
+        break;
+      case 'hotkey-show-original':
+        void sendMessage('restorePage', undefined, tabId).catch(() => {});
+        break;
+      case 'hotkey-translate-page-1':
+      case 'hotkey-translate-page-2':
+      case 'hotkey-translate-page-3': {
+        const index = Number(command.slice(-1)) - 1;
+        const lang = twpConfig.get('targetLanguages')[index];
+        if (!lang) break;
+        void twpConfig.setTargetLanguage(lang).then(() => {
+          void sendMessage('translatePage', { targetLanguage: lang }, tabId).catch(() => {});
+        });
+        break;
+      }
     }
   });
 });
