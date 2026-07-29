@@ -494,9 +494,15 @@ const translationCache = (function () {
         this.dbCacheList = request.result;
 
         // If any translation cache was created while waiting for the cacheList to be created.
-        // Then add all these entries to the cacheList.
+        // Then add all these entries to the cacheList, but only once each one
+        // has actually finished starting (same reasoning as #createCache —
+        // persisting a name before its object store exists lets a concurrent
+        // size-budget sweep silently create an empty db under that name,
+        // which then permanently blocks the real store from ever being made).
         this.list.forEach((cache, key) => {
-          this.#addCacheList(key);
+          Promise.resolve(cache.promiseStartingCache).then((started) => {
+            if (started) this.#addCacheList(key);
+          });
         });
       };
 
@@ -535,7 +541,19 @@ const translationCache = (function () {
     }
 
     /**
-     * Create and start a translation cache then add to cacheList.
+     * Create and start a translation cache, then add it to cacheList once it
+     * has actually finished starting.
+     *
+     * The dbName is registered in the in-memory `list` immediately (so a
+     * concurrent getCache() call for the same name reuses this Cache instance
+     * instead of racing to create a duplicate one), but is only persisted to
+     * the cache_list database *after* cache.start() succeeds. Persisting it
+     * earlier let a concurrent cache-size sweep (see CacheList#enforceBudget)
+     * open this same dbName with no version before its "cache" object store
+     * existed, silently creating an empty v1 database — which then permanently
+     * prevented the real start() from ever creating that store, since
+     * onupgradeneeded only fires when the requested version is newer than
+     * what's already there.
      * @param {string} translationService
      * @param {string} sourceLanguage
      * @param {string} targetLanguage
@@ -548,10 +566,21 @@ const translationCache = (function () {
         targetLanguage
       );
       this.#addCache(translationService, sourceLanguage, targetLanguage, cache);
+      let started = false;
       try {
-        await cache.start();
+        started = await cache.start();
       } catch (e) {
         console.error(e);
+      }
+      if (started) {
+        const dbName = Cache.getDataBaseName(
+          translationService,
+          sourceLanguage,
+          targetLanguage
+        );
+        try {
+          this.#addCacheList(dbName);
+        } catch {}
       }
       return cache;
     }
@@ -584,7 +613,10 @@ const translationCache = (function () {
     }
 
     /**
-     * Adds a new translation cache name to the "list" and if possible stores it in the cacheList database.
+     * Registers a new translation cache in the in-memory "list" so a
+     * concurrent getCache() call for the same name reuses this instance
+     * instead of creating a duplicate. Does not touch the persisted
+     * cache_list database — see #createCache for why that's deferred.
      * @param {string} translationService
      * @param {string} sourceLanguage
      * @param {string} targetLanguage
@@ -597,9 +629,6 @@ const translationCache = (function () {
         targetLanguage
       );
       this.list.set(dbName, cache);
-      try {
-        this.#addCacheList(dbName);
-      } catch {}
     }
 
     /**
@@ -650,6 +679,23 @@ const translationCache = (function () {
           promises.push(CacheList.deleteDatabase(dbName));
         });
         await Promise.all(promises);
+
+        // Also clear the persisted cache_list records themselves — otherwise
+        // these now-deleted names stay listed forever, and a later
+        // size-budget sweep (CacheList#enforceBudget) would silently recreate
+        // an empty database under each stale name just by checking its size.
+        if (this.dbCacheList) {
+          const storageName = "cache_list";
+          await new Promise((resolve) => {
+            const req = this.dbCacheList
+              .transaction([storageName], "readwrite")
+              .objectStore(storageName)
+              .clear();
+            req.onsuccess = () => resolve();
+            req.onerror = () => resolve();
+          });
+        }
+
         return true;
       } catch (e) {
         console.error(e);
