@@ -39,6 +39,13 @@ history for each:**
 popup — and the three standalone windows `popup/popup-translate-text.*`,
 `popup/popup-translate-document.*`, `popup/improve-translation.*`.)*
 
+**Cleanup:** the dead pre-rewrite vanilla-JS source trees (`popup/old-popup.js`,
+`popup/improve-translation.js`, `popup/popup-translate-text.js`,
+`popup/popup-translate-document.js`, `popup/detect-pdf.js`, and
+`options/release-notes/en.html`) have been deleted — they were kept around
+only as porting reference and nothing in the built extension imported them.
+Pull from git history if any of that content is needed again.
+
 See the git history on this rewrite for the phase-by-phase breakdown (config
 + messaging skeleton, each translation provider, the page-translation engine,
 the floating bubble, selection/hover/mobile-popup features, the toolbar

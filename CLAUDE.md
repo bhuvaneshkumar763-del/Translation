@@ -44,18 +44,12 @@ were completed afterward. Trust the code and `git log`, not that file's
 
 ## Known gaps / next things to look at
 
-- **Dead vanilla-JS source trees still in the repo**: `popup/` (old-popup.js,
-  improve-translation.js, popup-translate-text.js,
-  popup-translate-document.js, detect-pdf.js) and `options/release-notes/`
-  are leftover from before the rewrite. Nothing in the built extension
-  imports them anymore — they were kept around only as porting reference.
-  Per the project's own stated policy ("delete each ported old-tree file as
-  soon as its replacement passes"), these are now safe to delete, but that
-  hasn't been done yet — do it if you're in the area, or if asked to clean up.
 - **Release notes aren't wired into the new options page.** `showReleaseNotes`
   is still a config key (`modules/config/schema.ts`) but nothing renders
-  release notes anywhere in the new UI. `options/release-notes/en.html` is
-  the old content, if it's worth porting.
+  release notes anywhere in the new UI. The old `options/release-notes/en.html`
+  content was deleted along with the rest of the dead vanilla-JS tree (see
+  below) — if porting this, pull it from git history (`git show
+  d7da732:options/release-notes/en.html` or earlier).
 - **Toolbar-icon translated/original state swap** (the old
   `icon-32-translated.png`) isn't wired up — cosmetic, not urgent.
 - No automated test suite exists. See Testing below for how verification has
