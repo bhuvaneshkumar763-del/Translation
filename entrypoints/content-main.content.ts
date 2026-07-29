@@ -1,18 +1,27 @@
 import { render } from 'solid-js/web';
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 import { twpConfig } from '@/modules/config/store';
-import { onMessage } from '@/modules/messaging/protocol';
-import { createPageTranslator } from '@/modules/page-translator/translateLoop';
+import { onMessage, sendMessage } from '@/modules/messaging/protocol';
+import { createPageTranslator, type PageTranslator } from '@/modules/page-translator/translateLoop';
+import { createOriginalLanguageTracker, shouldAutoTranslateOnLoad } from '@/modules/page-translator/originalLanguage';
 import { FloatingBubble } from '@/components/bubble/FloatingBubble';
+import { SelectionPopup } from '@/components/selection-popup/SelectionPopup';
+import { OriginalTextTooltip } from '@/components/hover-tooltip/OriginalTextTooltip';
+import { TranslatedTextTooltip } from '@/components/hover-tooltip/TranslatedTextTooltip';
+import { MobilePopup } from '@/components/mobile-popup/MobilePopup';
 
 /**
  * The page-translation content script — wires modules/page-translator's
  * engine (dedupe + mutation watching + adaptive resweep, ported from the old
  * contentScript/pageTranslator.js's hardening work) up to config and the
- * background message router, and (main frame only) mounts the floating
- * translate bubble. See translateLoop.ts for the fidelity note on what's
- * simplified in this phase (individual text nodes, not paragraph-level
- * "pieces"; no attribute/title/dictionary translation yet).
+ * background message router, detects the page's original language and
+ * decides whether to auto-translate on load (modules/page-translator/
+ * originalLanguage.ts), and mounts every content-script UI surface: the
+ * floating bubble, the selection-translate popup + both hover tooltips (all
+ * frames, matching the old translateSelected.js/showOriginal.js/
+ * showTranslated.js bundle), and the mobile popup (main frame only). See
+ * translateLoop.ts for the fidelity note on what's simplified in the
+ * page-translation engine itself.
  */
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -22,6 +31,12 @@ export default defineContentScript({
   cssInjectionMode: 'ui',
   async main(ctx) {
     await twpConfig.onReady();
+
+    const isMainFrame = window.self === window.top;
+    // Main frame already knows its own hostname; subframes ask background
+    // for the *tab's* hostname (not their own, possibly cross-origin, one) —
+    // always/never-translate-site rules are meant to key off the outer page.
+    const hostname = isMainFrame ? location.hostname : await sendMessage('getTabHostName', undefined).catch(() => location.hostname);
 
     const pageTranslator = createPageTranslator({
       getService: () => twpConfig.get('pageTranslatorService'),
@@ -40,9 +55,76 @@ export default defineContentScript({
       pageTranslator.restorePage();
     });
 
-    if (window.self === window.top) {
+    const originalLanguage = createOriginalLanguageTracker();
+    const originalLanguageReady = originalLanguage.start();
+
+    if (isMainFrame) {
+      pageTranslator.onStateChange((state) => {
+        void sendMessage('reportMainFramePageLanguageState', { state }).catch(() => {});
+      });
+
+      // Auto-translate-on-load decision, once the original language resolves.
+      void originalLanguageReady.then(() => {
+        const decision = shouldAutoTranslateOnLoad({
+          originalLanguage: originalLanguage.get(),
+          hostname,
+          targetLanguage: twpConfig.get('targetLanguage') ?? 'en',
+          pageLanguageState: pageTranslator.getState(),
+          alwaysTranslateSites: twpConfig.get('alwaysTranslateSites'),
+          neverTranslateSites: twpConfig.get('neverTranslateSites'),
+          alwaysTranslateLangs: twpConfig.get('alwaysTranslateLangs'),
+          neverTranslateLangs: twpConfig.get('neverTranslateLangs'),
+          hasSavedSourceLangForHost: !!twpConfig.get('fpSourceLangByHost')[hostname],
+          isIncognito: browser.extension.inIncognitoContext,
+        });
+        if (decision) void pageTranslator.translatePage(twpConfig.get('targetLanguage') ?? 'en');
+      });
+
       await setupFloatingBubble(ctx, pageTranslator);
+      await mountPersistentOverlay(ctx, 'twp-mobile-popup', (uiContainer) =>
+        render(
+          () =>
+            MobilePopup({
+              pageTranslator,
+              hostname,
+              getOriginalLanguage: () => originalLanguage.get(),
+              onOriginalLanguageChange: originalLanguage.onChange,
+            }),
+          uiContainer,
+        ),
+      );
     }
+
+    await mountPersistentOverlay(ctx, 'twp-selection-hover', (uiContainer, shadowHost) => {
+      const disposeSelection = render(
+        () =>
+          SelectionPopup({
+            hostname,
+            shadowHost,
+            getOriginalLanguage: () => originalLanguage.get(),
+            onOriginalLanguageChange: originalLanguage.onChange,
+          }),
+        uiContainer,
+      );
+      const disposeOriginal = render(() => OriginalTextTooltip({ pageTranslator, shadowHost }), uiContainer);
+      const disposeTranslated = render(
+        () =>
+          TranslatedTextTooltip({
+            hostname,
+            shadowHost,
+            getPageLanguageState: () => pageTranslator.getState(),
+            onPageLanguageStateChange: pageTranslator.onStateChange,
+            getOriginalLanguage: () => originalLanguage.get(),
+            onOriginalLanguageChange: originalLanguage.onChange,
+          }),
+        uiContainer,
+      );
+      return () => {
+        disposeSelection();
+        disposeOriginal();
+        disposeTranslated();
+      };
+    });
   },
 });
 
@@ -52,10 +134,53 @@ function bubbleVisibleForHost(host: string): boolean {
   return twpConfig.get('fpShowFloatingBubble') !== 'no';
 }
 
-async function setupFloatingBubble(
+/**
+ * Mounts a content-script UI that stays up for the page's whole lifetime
+ * (no user-facing show/hide toggle, unlike the bubble) with the same
+ * zero-size fixed `:host` positioning fix and SPA-body-wipe remount safety
+ * net the bubble needed — factored out here since two separate overlays
+ * (mobile popup, selection+hover) both need exactly this and nothing more.
+ */
+async function mountPersistentOverlay(
   ctx: ContentScriptContext,
-  pageTranslator: ReturnType<typeof createPageTranslator>,
+  name: string,
+  renderFn: (uiContainer: HTMLElement, shadowHost: HTMLElement) => (() => void) | void,
 ): Promise<void> {
+  const { createShadowRootUi } = await import('wxt/utils/content-script-ui/shadow-root');
+
+  let dispose: (() => void) | void;
+
+  const ui = await createShadowRootUi(ctx, {
+    name,
+    position: 'inline',
+    anchor: 'body',
+    append: 'last',
+    mode: 'closed',
+    css: `:host{
+      position: fixed !important;
+      z-index: 2147483647 !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 0 !important;
+      height: 0 !important;
+    }`,
+    onMount(uiContainer, _shadow, shadowHost) {
+      dispose = renderFn(uiContainer, shadowHost);
+    },
+    onRemove() {
+      if (typeof dispose === 'function') dispose();
+      dispose = undefined;
+    },
+  });
+
+  ui.mount();
+
+  new MutationObserver(() => {
+    if (!ui.shadowHost.isConnected) ui.mount();
+  }).observe(document.body, { childList: true });
+}
+
+async function setupFloatingBubble(ctx: ContentScriptContext, pageTranslator: PageTranslator): Promise<void> {
   if (
     location.protocol === 'chrome-extension:' ||
     location.protocol === 'moz-extension:' ||

@@ -13,10 +13,62 @@ import { onMessage, sendMessage } from '@/modules/messaging/protocol';
  * of background.js's other responsibilities (context menus, commands,
  * tab-icon state, the useOldPopup swap) are NOT here yet, see later phases.
  */
+/** Per-tab cache so subframes can learn the main frame's detected language/translation state without redetecting it themselves. Cleared as tabs close. */
+const tabLanguageByTabId = new Map<number, string>();
+const tabPageStateByTabId = new Map<number, 'original' | 'translated'>();
+
 export default defineBackground(() => {
-  twpConfig.onReady();
+  twpConfig.onReady(() => {
+    // Ported from lib/platformInfo.js's `if (chrome.tabs) twpConfig.set("originalUserAgent", ...)`
+    // — snapshotting the background's own navigator.userAgent once, since
+    // some platforms give content scripts a different (spoofed/overridden)
+    // user agent than the browser's real one.
+    void twpConfig.set('originalUserAgent', navigator.userAgent);
+  });
   initProviderRegistry();
   initTextToSpeech();
+
+  browser.tabs.onRemoved.addListener((tabId) => {
+    tabLanguageByTabId.delete(tabId);
+    tabPageStateByTabId.delete(tabId);
+  });
+
+  onMessage('getTabHostName', (message) => {
+    const url = message.sender.tab?.url;
+    if (!url) return '';
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return '';
+    }
+  });
+
+  onMessage('translateSingleText', async (message) => {
+    const { serviceName, sourceLanguage, targetLanguage, text } = message.data;
+    return await translationService.translateSingleText(serviceName, sourceLanguage, targetLanguage, text);
+  });
+
+  onMessage('thisFrameIsInFocus', (message) => {
+    const tabId = message.sender.tab?.id;
+    if (tabId != null) void sendMessage('anotherFrameIsInFocus', undefined, tabId).catch(() => {});
+  });
+
+  onMessage('reportMainFrameTabLanguage', (message) => {
+    const tabId = message.sender.tab?.id;
+    if (tabId != null) tabLanguageByTabId.set(tabId, message.data.language);
+  });
+  onMessage('getMainFrameTabLanguage', (message) => {
+    const tabId = message.sender.tab?.id;
+    return (tabId != null && tabLanguageByTabId.get(tabId)) || 'und';
+  });
+  onMessage('reportMainFramePageLanguageState', (message) => {
+    const tabId = message.sender.tab?.id;
+    if (tabId != null) tabPageStateByTabId.set(tabId, message.data.state);
+  });
+  onMessage('getMainFramePageLanguageState', (message) => {
+    const tabId = message.sender.tab?.id;
+    return (tabId != null && tabPageStateByTabId.get(tabId)) || 'original';
+  });
 
   onMessage('translateHTML', async (message) => {
     const { translationService: serviceName, sourceLanguage, targetLanguage, sourceArray2d, dontSortResults } = message.data;

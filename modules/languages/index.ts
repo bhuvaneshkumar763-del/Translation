@@ -109,3 +109,9 @@ export function codeToLanguage(code: string, uiLanguage: string): string {
   const table = (allLanguagesNames as Record<string, Record<string, string> | undefined>)[fixed];
   return table?.[code] ?? allLanguagesNames.en[code as keyof typeof allLanguagesNames.en] ?? code;
 }
+
+/** The full code -> display-name table for a given UI language (falls back to English). */
+export function getLanguageList(uiLanguage: string): Record<string, string> {
+  const fixed = fixUILanguageCode(uiLanguage) ?? 'en';
+  return (allLanguagesNames as Record<string, Record<string, string> | undefined>)[fixed] ?? allLanguagesNames.en;
+}

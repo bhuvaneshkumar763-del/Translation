@@ -55,22 +55,49 @@ export interface ProtocolMap {
   // browser.runtime.openOptionsPage() harmlessly no-ops/rejects until then).
   openOptionsPage(): void;
 
-  // Filled in during Phase 2+: translateText,
-  // translateSingleText, detectTabLanguage, getMainFrameTabLanguage,
-  // getMainFramePageLanguageState, setPageLanguageState,
-  // removeTranslationsWithError, swapTranslationService,
-  // getCurrentPageTranslatorService, currentTargetLanguage,
-  // getCurrentPageLanguage, getOriginalTabLanguage.
-  //
-  // Filled in during Phase 5: TranslateSelectedText, hotTranslateSelectedText,
-  // thisFrameIsInFocus, anotherFrameIsInFocus, improveTranslation,
-  // getCurrentSourceLanguage, getDontSortResults, showPopupMobile,
-  // autoTranslateBecauseClickedALink, getTabHostName (needed there because
-  // translateSelected/popupMobile run in every frame, unlike the main-frame-
-  // only bubble, which can just read location.hostname directly).
-  //
+  // --- Phase 5: selection translation, hover tooltips, mobile popup ---
+  // any frame -> background. Unlike the main-frame-only bubble (which can
+  // just read location.hostname), these features run in every frame
+  // (all_frames, matching the old translateSelected.js/showTranslated.js),
+  // and a same-origin-policy-unaware iframe's own hostname isn't what
+  // always/never-translate-site rules should key on — they should key on
+  // the top-level tab's host, hence this round-trip.
+  getTabHostName(): string;
+  // content script -> background: single-string translation (selection
+  // popup, hover tooltips), reusing the same provider registry as page
+  // translation.
+  translateSingleText(data: {
+    serviceName: string;
+    sourceLanguage: string;
+    targetLanguage: string;
+    text: string;
+  }): string | undefined;
+  // main frame -> background (on focus) -> background relays to every frame
+  // of the tab, so a selection popup open in another frame closes itself
+  // when a different frame takes focus (matches the old cross-frame
+  // "thisFrameIsInFocus"/"anotherFrameIsInFocus" arbitration).
+  thisFrameIsInFocus(): void;
+  anotherFrameIsInFocus(): void;
+  // background -> content script (tab-targeted), triggered by the keyboard
+  // commands already declared in wxt.config.ts. The listeners are wired up
+  // now; browser.commands.onCommand -> sendMessage(...) itself is Phase 7's
+  // job alongside the rest of the commands/context-menus wiring.
+  TranslateSelectedText(): void;
+  hotTranslateSelectedText(): void;
+  showPopupMobile(): void;
+  // main frame -> background (report) / any frame -> background (read):
+  // lets subframes (iframes, which can't run browser.i18n.detectLanguage
+  // against the *page's* text — only their own) learn the top-level page's
+  // detected original language and translation state without redetecting it
+  // themselves.
+  reportMainFrameTabLanguage(data: { language: string }): void;
+  getMainFrameTabLanguage(): string;
+  reportMainFramePageLanguageState(data: { state: 'original' | 'translated' }): void;
+  getMainFramePageLanguageState(): 'original' | 'translated';
+
   // Filled in during Phase 6: authorizationToOpenOptions,
-  // restorePagesWithServiceNames, getTabMimeType.
+  // restorePagesWithServiceNames, getTabMimeType, improveTranslation,
+  // autoTranslateBecauseClickedALink.
   //
   // Filled in during Phase 7: getCacheSize, deleteTranslationCache,
   // contentScriptIsInjected, cleanUp.

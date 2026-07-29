@@ -503,13 +503,13 @@ export function FloatingBubble(props: FloatingBubbleProps) {
             </div>
           </div>
           <div class="body">
-            <button class="primary" onClick={onPrimaryClick}>
+            <button class="primary" on:click={onPrimaryClick}>
               {translated() ? 'Show original' : 'Translate page'}
             </button>
             <div class="selrow">
               <div class="selcol">
                 <span class="sellbl">From</span>
-                <select class="sel" onClick={(e) => e.stopPropagation()} onChange={onSourceLanguageChange}>
+                <select class="sel" on:click={(e) => e.stopPropagation()} on:change={onSourceLanguageChange}>
                   <For each={sourceLangOptions()}>
                     {(code) => (
                       <option value={code} selected={code === sourceLanguage()}>
@@ -521,7 +521,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
               </div>
               <div class="selcol">
                 <span class="sellbl">To</span>
-                <select class="sel" onClick={(e) => e.stopPropagation()} onChange={onTargetLanguageChange}>
+                <select class="sel" on:click={(e) => e.stopPropagation()} on:change={onTargetLanguageChange}>
                   <For each={targetLangOptions()}>
                     {(code) => (
                       <option value={code} selected={code === targetLanguage()}>
@@ -533,7 +533,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
               </div>
               <div class="selcol">
                 <span class="sellbl">Service</span>
-                <select class="sel" onClick={(e) => e.stopPropagation()} onChange={onServiceChange}>
+                <select class="sel" on:click={(e) => e.stopPropagation()} on:change={onServiceChange}>
                   <For each={serviceOptions()}>
                     {(s) => (
                       <option value={s} selected={s === service()}>
@@ -545,20 +545,20 @@ export function FloatingBubble(props: FloatingBubbleProps) {
               </div>
             </div>
             <div class="row">
-              <div class="chip" classList={{ on: alwaysOn() }} tabindex="0" role="button" onClick={onAlwaysClick} onKeyDown={onChipKeydown}>
+              <div class="chip" classList={{ on: alwaysOn() }} tabindex="0" role="button" on:click={onAlwaysClick} on:keydown={onChipKeydown}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M5 13l4 4L19 7" />
                 </svg>
                 <span>Always</span>
               </div>
-              <div class="chip" tabindex="0" role="button" onClick={onSettingsClick} onKeyDown={onChipKeydown}>
+              <div class="chip" tabindex="0" role="button" on:click={onSettingsClick} on:keydown={onChipKeydown}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="3" />
                   <path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.4-2.5H9.5L9 4.4a7 7 0 0 0-1.7 1l-2.3-1-2 3.4L5 11a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.5 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.6a7 7 0 0 0 .1-1z" />
                 </svg>
                 <span>Settings</span>
               </div>
-              <div class="chip" tabindex="0" role="button" onClick={onHideClick} onKeyDown={onChipKeydown}>
+              <div class="chip" tabindex="0" role="button" on:click={onHideClick} on:keydown={onChipKeydown}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M18 6 6 18M6 6l12 12" />
                 </svg>

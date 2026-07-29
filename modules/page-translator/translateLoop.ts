@@ -79,6 +79,12 @@ export function createPageTranslator(options: PageTranslatorOptions) {
     if (dedupe.isTracked(node)) return false;
     dedupe.track([node]);
     queue.push(node);
+    // Nodes discovered after the initial translatePage() sweep (new DOM from
+    // the mutation watcher/resweep) need their pre-translation text recorded
+    // too, or restorePage() silently leaves them translated forever — the
+    // initial batch records this in bulk in translatePage() itself, this
+    // covers everything found afterwards.
+    nodesToRestore.push({ node, original: node.data });
     return true;
   }
 
@@ -217,6 +223,8 @@ export function createPageTranslator(options: PageTranslatorOptions) {
       stateListeners.add(cb);
       return () => stateListeners.delete(cb);
     },
+    /** Currently-translated text nodes and their pre-translation text — used by the "hover to see original" tooltip. */
+    getTranslatedNodes: (): ReadonlyArray<{ node: Text; original: string }> => nodesToRestore,
   };
 }
 
