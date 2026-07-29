@@ -32,7 +32,7 @@ export interface ServiceCallbacks {
   cbParseResponse(response: any): ServiceSingleResult[];
   cbTransformResponse(result: string, dontSortResults: boolean): string[];
   cbGetExtraParameters?(sourceLanguage: string, targetLanguage: string, requests: TranslationInfo[]): string;
-  cbGetRequestBody?(sourceLanguage: string, targetLanguage: string, requests: TranslationInfo[]): string;
+  cbGetRequestBody?(sourceLanguage: string, targetLanguage: string, requests: TranslationInfo[]): string | undefined;
   cbGetExtraHeaders?(): Array<{ name: string; value: string }>;
 }
 

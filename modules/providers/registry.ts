@@ -1,15 +1,22 @@
 import { googleService } from './google';
+import { bingService } from './bing';
+import { yandexService } from './yandex';
 import type { Service } from './types';
 
 /**
- * Phase 1: Google only. Bing and Yandex join in Phase 2 (they share the
- * page-translation code path, which is what validates the Service base class
- * is genuinely provider-agnostic); DeepL and LibreTranslate join in Phase 3.
- * `twpLang.getAlternativeService`'s cross-provider language-support fallback
- * isn't meaningful with a single provider, so it isn't ported yet either —
- * see modules/languages/index.ts.
+ * Google, Bing, and Yandex — the 3 page-translation-capable providers.
+ * DeepL and LibreTranslate join in Phase 3 (text-translation only, plus
+ * DeepL's unusual live-tab-bridge architecture). `twpLang.getAlternativeService`'s
+ * cross-provider language-support fallback isn't ported yet either — see
+ * modules/languages/index.ts; it becomes meaningful once there's more than
+ * one provider to fall back *to* for page translation, which is now, but
+ * it's still deferred to keep this phase scoped to "providers work."
  */
-export const serviceList = new Map<string, Service>([['google', googleService]]);
+export const serviceList = new Map<string, Service>([
+  ['google', googleService],
+  ['bing', bingService],
+  ['yandex', yandexService],
+]);
 
 export function getServiceByName(serviceName: string): Service | null {
   return serviceList.get(serviceName) ?? null;
