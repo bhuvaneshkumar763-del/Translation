@@ -1,18 +1,22 @@
 import { twpConfig } from '@/modules/config/store';
-import { translationService } from '@/modules/providers/registry';
+import { translationService, initProviderRegistry } from '@/modules/providers/registry';
+import { initTextToSpeech } from '@/modules/tts/offscreenClient';
 import { onMessage, sendMessage } from '@/modules/messaging/protocol';
 
 /**
- * Phase 1 background: config init + the message router for the Google
- * page-translation path, plus a minimal toolbar-icon trigger so there's a
- * real, clickable way to test end-to-end without waiting on the popup
- * rebuild (Phase 6). Ported from background/background.js +
+ * Background: config init + the message router for translation (Google/
+ * Bing/Yandex/DeepL — LibreTranslate and DeepL-free-API register themselves
+ * from stored config via initProviderRegistry) and text-to-speech (relayed
+ * to the offscreen document), plus a minimal toolbar-icon trigger standing
+ * in for the real popup (Phase 6). Ported from background/background.js +
  * background/translationService.js's chrome.runtime.onMessage router — most
- * of background.js's responsibilities (context menus, commands, tab-icon
- * state, the useOldPopup swap) are NOT here yet, see later phases.
+ * of background.js's other responsibilities (context menus, commands,
+ * tab-icon state, the useOldPopup swap) are NOT here yet, see later phases.
  */
 export default defineBackground(() => {
   twpConfig.onReady();
+  initProviderRegistry();
+  initTextToSpeech();
 
   onMessage('translateHTML', async (message) => {
     const { translationService: serviceName, sourceLanguage, targetLanguage, sourceArray2d, dontSortResults } = message.data;

@@ -1,25 +1,73 @@
+import { twpConfig } from '../config/store';
+import type { Config } from '../config/schema';
 import { googleService } from './google';
 import { bingService } from './bing';
 import { yandexService } from './yandex';
-import type { Service } from './types';
+import { deeplService, createDeeplFreeApiService } from './deepl';
+import { createLibreService } from './libre';
+import type { TranslationProvider } from './types';
 
 /**
- * Google, Bing, and Yandex — the 3 page-translation-capable providers.
- * DeepL and LibreTranslate join in Phase 3 (text-translation only, plus
- * DeepL's unusual live-tab-bridge architecture). `twpLang.getAlternativeService`'s
- * cross-provider language-support fallback isn't ported yet either — see
- * modules/languages/index.ts; it becomes meaningful once there's more than
- * one provider to fall back *to* for page translation, which is now, but
- * it's still deferred to keep this phase scoped to "providers work."
+ * All translation providers. `getSafeServiceByName` mirrors the old code's
+ * gating: a service is only usable if it's in `enabledServices` (the
+ * built-in 4) or registered as a `customServices` entry (libre/deepl_freeapi)
+ * — ported from `getSafeServiceByName` in background/translationService.js.
  */
-export const serviceList = new Map<string, Service>([
+export const serviceList = new Map<string, TranslationProvider>([
   ['google', googleService],
   ['bing', bingService],
   ['yandex', yandexService],
+  ['deepl', deeplService],
 ]);
 
-export function getServiceByName(serviceName: string): Service | null {
+function getSafeServiceByName(serviceName: string): TranslationProvider | null {
+  const enabled = twpConfig.get('enabledServices').includes(serviceName);
+  const isCustom = twpConfig.get('customServices').some((cs) => cs.name === serviceName);
+  if (!enabled && !isCustom) return null;
   return serviceList.get(serviceName) ?? null;
+}
+
+/** Register libre/deepl_freeapi from config on startup, and keep Google's proxy override in sync. */
+export function initProviderRegistry(): void {
+  twpConfig.onReady(() => {
+    const libre = twpConfig.get('customServices').find((cs) => cs.name === 'libre');
+    if (libre && 'url' in libre) {
+      serviceList.set('libre', createLibreService(libre.url, libre.apiKey));
+    }
+
+    const deeplFreeApi = twpConfig.get('customServices').find((cs) => cs.name === 'deepl_freeapi');
+    if (deeplFreeApi) {
+      serviceList.set('deepl', createDeeplFreeApiService(deeplFreeApi.apiKey));
+    }
+
+    applyGoogleProxy(twpConfig.get('proxyServers'));
+  });
+
+  twpConfig.onChanged((name, newValue) => {
+    if (name === 'proxyServers') {
+      applyGoogleProxy(newValue as Config['proxyServers']);
+    }
+  });
+}
+
+function applyGoogleProxy(proxyServers: Config['proxyServers']): void {
+  const url = new URL(googleService.baseURL);
+  url.host = proxyServers?.google?.translateServer || 'translate-pa.googleapis.com';
+  googleService.baseURL = url.toString();
+}
+
+/** Called from background.ts's createLibreService/removeLibreService/etc. message handlers (Phase 6 wires the options-page UI that sends these). */
+export function registerLibreService(url: string, apiKey: string): void {
+  serviceList.set('libre', createLibreService(url, apiKey));
+}
+export function removeLibreService(): void {
+  serviceList.delete('libre');
+}
+export function registerDeeplFreeApiService(apiKey: string): void {
+  serviceList.set('deepl', createDeeplFreeApiService(apiKey));
+}
+export function removeDeeplFreeApiService(): void {
+  serviceList.set('deepl', deeplService);
 }
 
 export const translationService = {
@@ -31,7 +79,7 @@ export const translationService = {
     dontSaveInPersistentCache = false,
     dontSortResults = false,
   ): Promise<string[][]> {
-    const service = getServiceByName(serviceName);
+    const service = getSafeServiceByName(serviceName);
     if (!service) return [];
     return await service.translate(sourceLanguage, targetLanguage, sourceArray2d, dontSaveInPersistentCache, dontSortResults);
   },
@@ -43,7 +91,7 @@ export const translationService = {
     sourceArray: string[],
     dontSaveInPersistentCache = false,
   ): Promise<string[]> {
-    const service = getServiceByName(serviceName);
+    const service = getSafeServiceByName(serviceName);
     if (!service) return [];
     const results = await service.translate(
       sourceLanguage,
@@ -61,13 +109,13 @@ export const translationService = {
     originalText: string,
     dontSaveInPersistentCache = false,
   ): Promise<string | undefined> {
-    const service = getServiceByName(serviceName);
+    const service = getSafeServiceByName(serviceName);
     if (!service) return undefined;
     const results = await service.translate(sourceLanguage, targetLanguage, [[originalText]], dontSaveInPersistentCache);
     return results[0]?.[0];
   },
 
   removeTranslationsWithError(): void {
-    serviceList.forEach((service) => service.removeTranslationsWithError());
+    serviceList.forEach((service) => service.removeTranslationsWithError?.());
   },
 };

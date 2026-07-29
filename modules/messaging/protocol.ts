@@ -28,17 +28,33 @@ export interface ProtocolMap {
     dontSortResults?: boolean;
   }): string[][];
 
+  // --- Phase 3: DeepL live-tab bridge ---
+  // background -> the deepl.com content script bridge (tab-targeted)
+  translateTextWithDeepL(data: { text: string; targetLanguage: string }): string;
+  // deepl.com content script bridge -> background
+  DeepL_firstTranslationResult(data: { result: string }): void;
+
+  // --- Phase 3: text-to-speech (background <-> offscreen document) ---
+  // content script/popup -> background
+  textToSpeech(data: { text: string; targetLanguage: string }): void;
+  stopAudio(): void;
+  // background -> offscreen document (broadcast, no tabId — the offscreen
+  // doc is just another extension context listening on chrome.runtime)
+  offscreen_google_textToSpeech(data: { text: string; targetLanguage: string }): void;
+  offscreen_bing_textToSpeech(data: { text: string; targetLanguage: string }): void;
+  offscreen_google_stopAll(): void;
+  offscreen_bing_stopAll(): void;
+  offscreen_google_ttsSpeed(data: { speed: number }): void;
+  offscreen_bing_ttsSpeed(data: { speed: number }): void;
+  offscreen_google_ttsVolume(data: { volume: number }): void;
+  offscreen_bing_ttsVolume(data: { volume: number }): void;
+
   // Filled in during Phase 2+: translateText,
   // translateSingleText, detectTabLanguage, getMainFrameTabLanguage,
   // getMainFramePageLanguageState, setPageLanguageState,
   // removeTranslationsWithError, swapTranslationService,
   // getCurrentPageTranslatorService, currentTargetLanguage,
   // getCurrentPageLanguage, getOriginalTabLanguage.
-  //
-  // Filled in during Phase 3: textToSpeech, stopAudio, the
-  // offscreen_{google,bing}_* actions, translateTextWithDeepL,
-  // DeepL_firstTranslationResult, createLibreService, removeLibreService,
-  // createDeeplFreeApiService, removeDeeplFreeApiService.
   //
   // Filled in during Phase 4: getTabHostName (bubble + others also use this),
   // openOptionsPage.

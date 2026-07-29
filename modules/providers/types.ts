@@ -10,6 +10,24 @@ import { translationCache } from '../cache/translationCache';
  * mid-batch), not incidental complexity to simplify away.
  */
 
+/**
+ * Structural interface every provider satisfies, whether it's a full
+ * `Service` subclass (Google/Bing/Yandex/LibreTranslate/DeepL-free-API) or a
+ * duck-typed standalone like the DeepL live-tab bridge (modules/providers/
+ * deepl.ts's default export), which has no XHR/retry/batching of its own —
+ * it drives a real deepl.com tab instead.
+ */
+export interface TranslationProvider {
+  translate(
+    sourceLanguage: string,
+    targetLanguage: string,
+    sourceArray2d: string[][],
+    dontSaveInPersistentCache?: boolean,
+    dontSortResults?: boolean,
+  ): Promise<string[][]>;
+  removeTranslationsWithError?(): void;
+}
+
 export type TranslationStatus = 'complete' | 'translating' | 'error';
 
 export interface TranslationInfo {
