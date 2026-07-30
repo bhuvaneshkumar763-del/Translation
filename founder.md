@@ -109,10 +109,18 @@ visit — it only looks at a page's text at the moment you click the toolbar
 icon, use a keyboard shortcut, or pick "translate" from the right-click
 menu, on whichever page you're currently on. If you'd rather have the old
 "always ready" experience — the floating bubble and automatic/hover
-translation showing up on every site without you asking first — there's a
-one-time toggle for that in Settings → Page ("Enable automatic translation
-on all sites"), which asks your browser for that broader permission
-up front.
+translation showing up on every site without you asking first — you're
+asked about this once, right after you install Prism, on a short welcome
+screen. Say no there (or just close the tab) and you can still turn it on
+anytime from Settings → Page ("Enable automatic translation on all
+sites"), which asks your browser for that broader permission up front.
+
+One real limitation worth knowing: on some browsers whose extension
+support isn't built on the same engine as Chrome (Orion on iOS is the
+one we've heard about directly), this "always on" mode currently can't
+actually turn on — the browser is missing a piece of technology it
+depends on. The regular "translate this page" button still works fine
+there; it's specifically the automatic/hands-off behavior that can't.
 
 **13. Most of your settings follow you to your other devices.**
 If you're signed into your browser's sync (the same feature that syncs

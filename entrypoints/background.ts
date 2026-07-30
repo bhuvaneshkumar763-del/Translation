@@ -152,6 +152,16 @@ export default defineBackground(() => {
   browser.permissions.onAdded.addListener(() => void syncContentMainRegistration());
   browser.permissions.onRemoved.addListener(() => void syncContentMainRegistration());
 
+  // Ask about the always-on permission up front, once, at install time —
+  // requested by a real user who otherwise never found the equivalent
+  // Settings toggle. `reason === 'install'` only: existing users updating
+  // never see this (they've already made whatever choice they made).
+  browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install') {
+      void browser.tabs.create({ url: browser.runtime.getURL('/welcome.html') });
+    }
+  });
+
   // A lightweight chrome.alarms-based keepalive — the old code had none (a
   // real gap under MV3's ~30s service-worker idle timeout). This is on top
   // of, not instead of, modules/providers/types.ts's task-scoped

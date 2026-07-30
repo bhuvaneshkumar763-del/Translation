@@ -448,6 +448,26 @@ above for what each one actually shipped.
   install-time-broad-permission problem this whole architecture exists to
   avoid). Safari/WebKit was never a decided target for this project (see
   `ROADMAP.md`) — this is the concrete shape that gap takes in practice.
+  **Root cause confirmed** (not just theorized) by comparing against the
+  user's own previously-working pre-rewrite fork
+  (`twp-fullpage-chrome.zip`, the vanilla-JS TWP-FullPage build this whole
+  project started from): its `manifest.json` has unconditional
+  `host_permissions: ["<all_urls>"]` plus every content script statically
+  declared in `content_scripts` — injected by the browser itself on every
+  page load, with zero dependency on `scripting.registerContentScripts` or
+  any other dynamic-registration API. That's exactly why it worked
+  everywhere including Orion. Presented as an explicit choice — revert to
+  that unconditional-access model, add a static fallback (which would
+  behaviorally undo the scope-down anyway, per the finding above), or keep
+  the current model — **the user chose to keep the privacy-forward
+  activeTab-by-default model**, accepting that automatic translation won't
+  work on WebKit-based browsers lacking this API. What was added instead:
+  `entrypoints/welcome/` (see below), a one-time onboarding page opened via
+  `background.ts`'s `runtime.onInstalled` listener (`reason === 'install'`
+  only) offering the always-on permission up front, since the user
+  reported never finding the equivalent Settings toggle on their own. This
+  improves *discoverability* for every user; it does not and cannot fix
+  the underlying Orion/WebKit API gap.
 
 ## Repo layout
 
@@ -462,10 +482,13 @@ entrypoints/         WXT entrypoints — one per browser-visible surface
   content-deepl-bridge.content.ts   scrapes DeepL's own web UI (live-tab bridge,
                                      not a backend API call)
   popup/, options/, improve-translation/, translate-text/,
-  translate-document/
+  translate-document/, welcome/
                          each: index.html + main.tsx (Solid) + App.tsx + App.css
                          (old-popup/ deleted in Gen 2 Session 3 — one popup
-                         now, not two)
+                         now, not two). welcome/ is the install-time
+                         onboarding page (see "Known gaps" above) — opened
+                         once via background.ts's runtime.onInstalled, not
+                         a page users navigate to directly
 
 modules/              framework-agnostic domain logic, imported by entrypoints
   config/                zod schema + chrome.storage.local-backed store

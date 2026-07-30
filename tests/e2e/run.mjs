@@ -60,6 +60,13 @@ const candidateEntrypoints = [
   { file: 'improve-translation.html' },
   { file: 'translate-text.html' },
   { file: 'translate-document.html' },
+  {
+    file: 'welcome.html',
+    async check(page) {
+      const hasPrimaryBtn = (await page.locator('.primaryBtn').count()) > 0;
+      if (!hasPrimaryBtn) return "expected the welcome page's .primaryBtn (enable-everywhere) to be present";
+    },
+  },
 ];
 
 const userDataDir = mkdtempSync(join(tmpdir(), 'prism-e2e-'));
