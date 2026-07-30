@@ -4,5 +4,9 @@
   "initialVersions": {
     "prism-translate": "12.0.0"
   },
-  "changesets": ["install-time-onboarding", "options-popup-reactivity-fix"]
+  "changesets": [
+    "install-time-onboarding",
+    "options-popup-reactivity-fix",
+    "revert-permission-model"
+  ]
 }

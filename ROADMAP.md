@@ -23,6 +23,12 @@ this file go stale the way the old `CHANGELOG.md` did.
 > either done or explicitly, deliberately declined (telemetry — the user
 > was asked and said skip it). Tier 5 remains a genuine forward-looking
 > wishlist, not something Gen 2 promised.
+>
+> **Post-Session-5 update:** item 5's permission scope-down was reverted
+> after shipping — real-world use on Orion (iOS) showed automatic
+> translation permanently breaking on browsers lacking a newer MV3 API,
+> with no fallback for those users. See that item and `CLAUDE.md`'s
+> "Permission model: reverted to unconditional access" for the full story.
 
 ## Tier 1 — Fix before this looks like a real gen-2 product
 
@@ -37,19 +43,28 @@ this file go stale the way the old `CHANGELOG.md` did.
 
 ## Tier 2 — Trust & permissions
 
-5. ✅ **DONE (Session 4).** `host_permissions` scoped down from
-   `['<all_urls>']` to `['https://www.deepl.com/*']` (DeepL bridge only),
-   with `activeTab` + on-demand injection (`ensureContentScript.ts`) for the
-   core gesture path and an optional `<all_urls>` grant
-   (`contentMainRegistration.ts`) for users who want the old always-on
-   experience. Two non-obvious bugs found only by running the built
-   extension (a static `content_scripts` entry granting injection
-   independent of `host_permissions`; WXT itself folding a
+5. ⤺ **TRIED (Session 4), REVERTED (post-Session-5).** `host_permissions`
+   was scoped down from `['<all_urls>']` to `['https://www.deepl.com/*']`
+   (DeepL bridge only), with `activeTab` + on-demand injection for the core
+   gesture path and an optional `<all_urls>` grant for the old always-on
+   experience. A real user's "always translate" only ever worked right
+   after a fresh click on Orion (WebKit-based, iOS) — never automatically
+   — because the optional-grant path depends on `scripting.registerContentScripts`,
+   an MV3 API Orion apparently doesn't support, and Orion has no native
+   fallback to grant the equivalent access another way. Confirmed against
+   the user's own previously-working pre-rewrite fork (unconditional
+   `host_permissions` + static `content_scripts`, no dynamic registration
+   dependency at all) — reverted to match it exactly, by the user's
+   explicit choice over keeping the scoped model with automatic
+   translation permanently broken on such browsers. See `CLAUDE.md`'s
+   "Permission model: reverted to unconditional access" section for the
+   full account, including the two non-obvious bugs found while first
+   building the scoped model (a static `content_scripts` entry granting
+   injection independent of `host_permissions`; WXT folding a
    `registration:'runtime'` script's `matches` back into mandatory
-   `host_permissions`) plus a Firefox-specific gap (`optional_host_permissions`
-   is MV3-only, silently stripped with no fallback on MV2) are all
-   documented in `CLAUDE.md`'s Session 4 section — worth reading before
-   touching this area again.
+   `host_permissions`) and the Firefox-specific gap
+   (`optional_host_permissions` is MV3-only) found along the way — all
+   still worth knowing if this trade-off is ever revisited.
 6. **No error visibility.** Still open — explicitly asked about and
    explicitly declined by the user in Session 4 ("skip it for now"), not
    silently dropped. Revisit if the user wants it later.

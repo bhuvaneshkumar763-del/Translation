@@ -7,10 +7,9 @@
 >
 > The extension was rebuilt from an older fork into "Prism" — new name, a
 > new indigo/violet look across every screen, an AI-powered translation
-> engine alongside the classic Google/Bing/etc. options, a modern
-> ask-first permission model, and cross-device settings sync. That rebuild
-> is complete — everything below describes the finished product, not a
-> work in progress. See
+> engine alongside the classic Google/Bing/etc. options, and cross-device
+> settings sync. That rebuild is complete — everything below describes the
+> finished product, not a work in progress. See
 > `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` if you
 > want the session-by-session engineering history behind how it got here.
 
@@ -69,11 +68,8 @@ There's a version of the popup adapted for touchscreens/mobile browsers.
 **7. Remembers your preferences per website.**
 You can tell it "always translate this site" or "never translate this
 site," and "always translate from this language," and it remembers that
-per-website — so you don't have to keep re-telling it. Turning on an
-"always translate" rule for the first time may show a one-time browser
-permission prompt — that's expected, and it's the same permission
-described in item 12 below, since "always" only works if Prism is allowed
-to check pages automatically.
+per-website — so you don't have to keep re-telling it, and it takes effect
+automatically the next time you visit, with no extra clicking.
 
 **8. A few extra helper windows:**
    - **"Improve translation"** — lets you manually correct which language a
@@ -103,24 +99,16 @@ translation service again — it's instant, and it also means slightly less
 data sent out over the network. There's a size cap so this cache doesn't
 grow forever.
 
-**12. It only reads a page when you ask it to.**
-By default, Prism doesn't have standing access to every website you
-visit — it only looks at a page's text at the moment you click the toolbar
-icon, use a keyboard shortcut, or pick "translate" from the right-click
-menu, on whichever page you're currently on. If you'd rather have the old
-"always ready" experience — the floating bubble and automatic/hover
-translation showing up on every site without you asking first — you're
-asked about this once, right after you install Prism, on a short welcome
-screen. Say no there (or just close the tab) and you can still turn it on
-anytime from Settings → Page ("Enable automatic translation on all
-sites"), which asks your browser for that broader permission up front.
-
-One real limitation worth knowing: on some browsers whose extension
-support isn't built on the same engine as Chrome (Orion on iOS is the
-one we've heard about directly), this "always on" mode currently can't
-actually turn on — the browser is missing a piece of technology it
-depends on. The regular "translate this page" button still works fine
-there; it's specifically the automatic/hands-off behavior that can't.
+**12. It's ready on every site as soon as you install it.**
+Prism can see and translate the text on any page you visit, without you
+having to grant it access site-by-site. That's what makes things like the
+floating bubble, "always translate this site," and hover-translate work
+reliably everywhere, on every browser, with no extra setup or permission
+prompts to hunt down. (An earlier version of Prism tried a more locked-down
+"only when you click" mode, but that broke automatic translation on some
+browsers whose extension support isn't built the same way Chrome's is —
+Orion on iOS being the one we heard about directly — with no way for those
+users to turn it back on. Went back to the simpler, reliable behavior.)
 
 **13. Most of your settings follow you to your other devices.**
 If you're signed into your browser's sync (the same feature that syncs
@@ -166,8 +154,11 @@ hover tooltips, the mobile bar, the selection popup, and all three helper
 windows — shares the same indigo "Prism" visual identity, replacing the
 old blue TWP styling.
 
-Two things worth knowing if you're comparing this to the pre-rebuild
-extension: the privacy/permission model in item 12 (ask first, by default,
-instead of standing access to every site you visit) and the cross-device
-settings sync in item 13 are both genuinely new — the old extension had
-neither.
+One thing worth knowing if you're comparing this to the pre-rebuild
+extension: the cross-device settings sync in item 13 is genuinely new —
+the old extension had none. The access model in item 12 is the same as the
+original extension always had (full access on every site from install,
+no per-site permission prompts) — an in-between version briefly asked
+before it could act on each site, but that broke automatic translation on
+some browsers with no way to fix it, so it went back to matching the
+original.

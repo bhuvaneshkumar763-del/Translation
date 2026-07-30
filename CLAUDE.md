@@ -200,6 +200,15 @@ landed:
   touches (hover-tooltip, mobile-popup, selection-popup, the standalone
   windows).
 
+> **⚠ The permissions half of this section is superseded.** The
+> activeTab-by-default / optional-grant model described below was reverted
+> back to unconditional `<all_urls>` access after this session — see
+> "Permission model: reverted to unconditional access" further down for
+> why and what changed. Kept here as the historical record of what was
+> tried and why it was scoped down in the first place; the cross-device
+> sync and remaining-surface-restyling work described below is unaffected
+> and still current.
+
 **Gen 2 rebuild — Session 4 (Trust, permissions, sync, remaining surfaces) is
 complete.** What landed:
 - **Permissions scoped down**, `wxt.config.ts`: `host_permissions` went from
@@ -402,6 +411,94 @@ complete. Gen 2 itself is now done.** What landed:
 for the full arc (Sessions 1-5) and this file's "Current status" sections
 above for what each one actually shipped.
 
+## Permission model: reverted to unconditional access
+
+Post-Session-5, a real user reported "always translate this site" only
+ever worked immediately after a fresh click — it never fired automatically
+on a later visit — specifically on Orion for iOS (a WebKit-based browser).
+The first fix attempt (a feature-detection guard in
+`syncContentMainRegistration()`, plus a `welcome/` onboarding page offering
+the always-on permission up front) made the failure mode safer and more
+discoverable, but didn't make automatic translation actually work there —
+Orion has no separate native "allow on all sites" fallback UI either, so
+there was no way to grant the equivalent of the old broad permission once
+the built-in flow didn't work.
+
+**Root cause, confirmed rather than theorized**: the user shared their
+previously-working pre-rewrite fork
+(`twp-fullpage-chrome.zip` — the original vanilla-JS TWP-FullPage codebase
+this whole project started from). Its `manifest.json` has unconditional
+`host_permissions: ["<all_urls>"]` plus every content script statically
+declared in `content_scripts` — injected by the browser itself on every
+page load, with zero dependency on `scripting.registerContentScripts` or
+any other dynamic-registration API. That's exactly why it worked
+everywhere including Orion, and exactly the mechanism Session 4's
+activeTab-by-default model replaced with something that needs a MV3 API
+Orion apparently doesn't support.
+
+Presented as an explicit choice — keep the privacy-forward scoped model
+(automatic translation permanently unavailable on WebKit-based browsers),
+add a static fallback (which would silently re-grant unconditional access
+anyway, per the Session 4 finding that a static `content_scripts` entry's
+own `matches` grants injection independent of `host_permissions`), or
+revert outright — **the user chose to revert**, matching their working
+fork exactly. What changed:
+
+- `wxt.config.ts`: `host_permissions` back to `['<all_urls>']`
+  unconditionally. `optional_host_permissions` and the Firefox-specific
+  `optional_permissions: ['<all_urls>']` branch are both gone — nothing is
+  optional anymore, so `manifest` went back to a plain object instead of a
+  per-browser function.
+- `entrypoints/content-main.content.ts`: back to the default
+  `registration: 'manifest'` with a real `matches: ['<all_urls>']` —
+  reverted from Session 4's `registration: 'runtime'` experiment. The
+  double-injection guard (`window.__prismContentMainActive`) stays — it's
+  still needed for the one remaining edge case, a tab that was already
+  open before install/reload (see `ensureContentScript.ts`'s updated doc
+  comment).
+- `modules/messaging/contentMainRegistration.ts` (+ its test) — **deleted**.
+  Its entire purpose was dynamically registering content-main once an
+  optional permission was granted; with the permission unconditional
+  again, there's nothing left to dynamically register.
+- `entrypoints/welcome/` — **deleted**. Existed solely to offer the
+  now-nonexistent optional permission at install time.
+- `background.ts`: removed `syncContentMainRegistration()` and its
+  `permissions.onAdded`/`onRemoved` listeners, and the `runtime.onInstalled`
+  → welcome-page trigger.
+- `entrypoints/popup/App.tsx` / `entrypoints/options/App.tsx`: removed
+  `requestAlwaysOnPermission()`/`KEYS_NEEDING_ALWAYS_ON_PERMISSION` and the
+  "Enable automatic translation on all sites" toggle — there's no longer a
+  permission to request or a setting to toggle; it's just always on.
+- `components/mobile-popup/MobilePopup.tsx`: removed the now-moot comment
+  about `chrome.permissions` being unreachable from a content-script
+  context — no longer relevant since there's no permission-request flow
+  anywhere in this codebase anymore.
+- `ensureContentScript.ts` (the `activeTab`-gesture on-demand injection
+  fallback used by `background.ts`/`popup/App.tsx`) — **kept**, not
+  removed, but its doc comment's reasoning changed: it's no longer covering
+  "permission not granted yet," just the narrower case of a tab that
+  predates this extension's install/reload (static `content_scripts`
+  injection only runs on navigation, not retroactively into already-open
+  tabs).
+
+**Verification found a real, separate, worth-remembering gotcha along the
+way**: the first few round-trip checks after reverting showed the LLM
+provider correctly registering (`customServices` — local-only, unaffected)
+but the translation itself silently not firing, with no error anywhere.
+Root cause: `pageTranslatorService`, `targetLanguage`, and
+`alwaysTranslateSites` are all in `SYNCED_CONFIG_KEYS`
+(`modules/config/schema.ts`, from Session 4's cross-device-sync work) —
+they live in `chrome.storage.sync`, not `chrome.storage.local`. A
+diagnostic script writing test config via `chrome.storage.local.set(...)`
+alone silently never reached those keys at all; `twpConfig` correctly kept
+reading the untouched default. Not a code bug — a reminder for **any**
+future test/debug script poking at this extension's storage directly:
+check `SYNCED_CONFIG_KEYS` before assuming `chrome.storage.local` is where
+a given config key lives. Once fixed, verified cleanly on a fresh profile
+with zero permission steps: exactly one LLM request, the page correctly
+translated, the floating bubble present — matching the old fork's
+behavior exactly, with real mock-server proof (not just structural checks).
+
 ## Known gaps / next things to look at
 - **Release notes aren't wired into the new options page.** `showReleaseNotes`
   is still a config key (`modules/config/schema.ts`) but nothing renders
@@ -411,63 +508,16 @@ above for what each one actually shipped.
   d7da732:options/release-notes/en.html` or earlier).
 - **Toolbar-icon translated/original state swap** (the old
   `icon-32-translated.png`) isn't wired up — cosmetic, not urgent.
-- **Mobile popup's "Always translate from {lang}" can't prompt for the
-  always-on permission** the way the equivalent popup/options controls do
-  (Session 5) — it runs in a content-script context, where `chrome.permissions`
-  is entirely inaccessible (not just gesture-restricted). See
-  `components/mobile-popup/MobilePopup.tsx`'s comment on
-  `toggleAlwaysTranslateFromLang` for the full explanation and what a real
-  fix would require (a message round trip through `background.ts`).
 - **No real Firefox E2E/runtime smoke test** — Session 5 added a Firefox
   *build* validation job to CI, but this repo's Playwright harness only
   ever drives Chromium (see "Testing" below). A genuine Firefox runtime
   check is still open.
-- **"Always translate" reported broken on Orion (iOS)** by a real user —
-  the manual "translate this page" button works, but sites/languages added
-  to an always-translate list don't auto-translate on a later visit; the
-  user has to click every time. Diagnosed from the symptom, not verified
-  against the actual browser (no way to test Orion/iOS from this
-  environment): Orion is WebKit-based, not Chromium, and its WebExtension
-  implementation most likely supports the older, more fundamental
-  `scripting.executeScript` (what the manual-click path uses, via
-  `ensureContentScript.ts`) without supporting the newer
-  `scripting.registerContentScripts`/`getRegisteredContentScripts`/
-  `unregisterContentScripts` trio that `contentMainRegistration.ts`'s
-  `syncContentMainRegistration()` needs to keep "always translate" working
-  across future page loads with no fresh gesture — exactly matching the
-  reported split (button works, "always" doesn't). Session 5 added a
-  feature-detection guard there (`if (!browser.scripting?.registerContentScripts) return;`)
-  so an unsupported browser degrades to "always translate only takes
-  effect right after a click" instead of throwing an unhandled rejection
-  out of a fire-and-forget background call — but this does not (and can't,
-  from the extension side) make the automatic behavior actually work on
-  such a browser; there's no MV3-standard alternative mechanism for
-  "run this script automatically on future page loads once a permission is
-  granted" other than `registerContentScripts` or a static
-  `content_scripts` manifest entry (which brings back the Session 4
-  install-time-broad-permission problem this whole architecture exists to
-  avoid). Safari/WebKit was never a decided target for this project (see
-  `ROADMAP.md`) — this is the concrete shape that gap takes in practice.
-  **Root cause confirmed** (not just theorized) by comparing against the
-  user's own previously-working pre-rewrite fork
-  (`twp-fullpage-chrome.zip`, the vanilla-JS TWP-FullPage build this whole
-  project started from): its `manifest.json` has unconditional
-  `host_permissions: ["<all_urls>"]` plus every content script statically
-  declared in `content_scripts` — injected by the browser itself on every
-  page load, with zero dependency on `scripting.registerContentScripts` or
-  any other dynamic-registration API. That's exactly why it worked
-  everywhere including Orion. Presented as an explicit choice — revert to
-  that unconditional-access model, add a static fallback (which would
-  behaviorally undo the scope-down anyway, per the finding above), or keep
-  the current model — **the user chose to keep the privacy-forward
-  activeTab-by-default model**, accepting that automatic translation won't
-  work on WebKit-based browsers lacking this API. What was added instead:
-  `entrypoints/welcome/` (see below), a one-time onboarding page opened via
-  `background.ts`'s `runtime.onInstalled` listener (`reason === 'install'`
-  only) offering the always-on permission up front, since the user
-  reported never finding the equivalent Settings toggle on their own. This
-  improves *discoverability* for every user; it does not and cannot fix
-  the underlying Orion/WebKit API gap.
+- ~~"Always translate" reported broken on Orion (iOS)~~ **Resolved** by
+  reverting the permission model back to unconditional `<all_urls>` access
+  — see "Permission model: reverted to unconditional access" below for the
+  full account. The activeTab-by-default model (and the mobile-popup gap
+  that came with it, since `chrome.permissions` was never reachable from a
+  content-script context) no longer exists in this codebase.
 
 ## Repo layout
 
@@ -482,28 +532,26 @@ entrypoints/         WXT entrypoints — one per browser-visible surface
   content-deepl-bridge.content.ts   scrapes DeepL's own web UI (live-tab bridge,
                                      not a backend API call)
   popup/, options/, improve-translation/, translate-text/,
-  translate-document/, welcome/
+  translate-document/
                          each: index.html + main.tsx (Solid) + App.tsx + App.css
                          (old-popup/ deleted in Gen 2 Session 3 — one popup
-                         now, not two). welcome/ is the install-time
-                         onboarding page (see "Known gaps" above) — opened
-                         once via background.ts's runtime.onInstalled, not
-                         a page users navigate to directly
+                         now, not two)
 
 modules/              framework-agnostic domain logic, imported by entrypoints
-  config/                zod schema + chrome.storage.local-backed store
+  config/                zod schema + chrome.storage.local/sync-backed store
                          (schema.ts mirrors the old defaultConfig 1:1 — same
                          ~45 keys, plus a versioning/migration system added
-                         in Gen 2 Session 2 — see CONFIG_SCHEMA_VERSION)
+                         in Gen 2 Session 2 — see CONFIG_SCHEMA_VERSION —
+                         and a SYNCED_CONFIG_KEYS allowlist from Session 4
+                         routing some keys to chrome.storage.sync instead of
+                         .local, see that constant's own header comment)
   messaging/             protocol.ts (discriminated-union message contracts,
                          via @webext-core/messaging) + tabTarget.ts (shared
                          mainFrameTarget/pageActionTarget helpers — see below)
                          + ensureContentScript.ts (on-demand injection +
-                         retry for the activeTab gesture path) +
-                         contentMainRegistration.ts (dynamic content-main
-                         registration gated on the optional <all_urls>
-                         grant) — both added in Gen 2 Session 4, see that
-                         section above
+                         retry for a tab that predates this extension's
+                         install/reload — see "Permission model: reverted
+                         to unconditional access" above)
   providers/             google.ts, bing.ts, yandex.ts, deepl.ts, libre.ts,
                          llm.ts, builtin.ts, descriptors.ts (provider
                          capability registry), registry.ts, types.ts

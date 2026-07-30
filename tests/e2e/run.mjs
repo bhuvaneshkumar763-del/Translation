@@ -33,7 +33,11 @@ if (!existsSync(extensionPath)) {
 // (offscreen.html is excluded — it's only ever loaded by chrome.offscreen,
 // not as a navigable page. old-popup.html was deleted in Gen 2 Session 3 —
 // one popup now, not two — so it's no longer in this list; if it ever
-// reappears in a build, that's a regression, not something to re-add here.)
+// reappears in a build, that's a regression, not something to re-add here.
+// welcome.html existed briefly as an install-time onboarding page for an
+// optional permission that no longer exists — see CLAUDE.md's "Permission
+// model: reverted to unconditional access" section — and was deleted along
+// with it; same "regression if it reappears" rule applies.)
 //
 // `check` is an optional extra assertion run against the page after the
 // generic "rendered without error" check passes — used for the Gen 2
@@ -60,13 +64,6 @@ const candidateEntrypoints = [
   { file: 'improve-translation.html' },
   { file: 'translate-text.html' },
   { file: 'translate-document.html' },
-  {
-    file: 'welcome.html',
-    async check(page) {
-      const hasPrimaryBtn = (await page.locator('.primaryBtn').count()) > 0;
-      if (!hasPrimaryBtn) return "expected the welcome page's .primaryBtn (enable-everywhere) to be present";
-    },
-  },
 ];
 
 const userDataDir = mkdtempSync(join(tmpdir(), 'prism-e2e-'));

@@ -3,7 +3,6 @@ import { createStore } from 'solid-js/store';
 import { type Config, type ConfigKey, defaultConfig } from '@/modules/config/schema';
 import { twpConfig } from '@/modules/config/store';
 import { codeToLanguage, fixTLanguageCode, getLanguageList, uiLanguages } from '@/modules/languages';
-import { ALL_SITES_PERMISSION } from '@/modules/messaging/contentMainRegistration';
 import { sendMessage } from '@/modules/messaging/protocol';
 import { isProviderAvailable } from '@/modules/providers/descriptors';
 
@@ -207,39 +206,6 @@ function App() {
     setCfg(name, value as never);
   }
 
-  // Gen 2 Session 4: reflects a real chrome.permissions grant, not a config
-  // flag — see wxt.config.ts's header comment for the permission model
-  // this is the settings-page half of. `browser.permissions.request` must
-  // be called synchronously inside the click handler (no `await` before
-  // it) or Chrome silently drops the required "user gesture" context and
-  // the prompt never appears.
-  const [autoEverywhere, setAutoEverywhere] = createSignal(false);
-  onMount(async () => {
-    setAutoEverywhere(await browser.permissions.contains(ALL_SITES_PERMISSION));
-  });
-  function toggleAutoEverywhere(e: Event): void {
-    const wantsOn = (e.currentTarget as HTMLInputElement).checked;
-    if (wantsOn) {
-      void browser.permissions.request(ALL_SITES_PERMISSION).then(setAutoEverywhere);
-    } else {
-      void browser.permissions.remove(ALL_SITES_PERMISSION).then((removed) => setAutoEverywhere(!removed));
-    }
-  }
-
-  // Gen 2 Session 5 regression fix: same reasoning as popup/App.tsx's
-  // requestAlwaysOnPermission — always-translate and hover-translate lists
-  // both depend on content-main actually running on a future page load
-  // with no user gesture, which under Session 4's permission model needs
-  // the optional <all_urls> grant. never-translate lists don't have this
-  // problem (if the broad permission isn't granted, nothing runs to
-  // wrongly translate in the first place, so there's nothing to "block").
-  const KEYS_NEEDING_ALWAYS_ON_PERMISSION = new Set([
-    'alwaysTranslateSites',
-    'alwaysTranslateLangs',
-    'sitesToTranslateWhenHovering',
-    'langsToTranslateWhenHovering',
-  ]);
-
   function addInArray(
     name: keyof Pick<
       Config,
@@ -252,7 +218,6 @@ function App() {
     >,
     value: string,
   ): void {
-    if (KEYS_NEEDING_ALWAYS_ON_PERMISSION.has(name)) void browser.permissions.request(ALL_SITES_PERMISSION);
     const current = twpConfig.get(name) as string[];
     if (!current.includes(value)) void set(name, [...current, value] as never);
   }
@@ -468,18 +433,6 @@ function App() {
 
         <TabPanel id="page" active={activeTab()}>
           <Section title="Page translation">
-            <label class="check aiHighlight">
-              <input type="checkbox" checked={autoEverywhere()} on:change={toggleAutoEverywhere} />
-              <span>
-                Enable automatic translation on all sites
-                <p class="hint">
-                  Off by default — Prism only reads a page when you ask it to (toolbar click, hotkey, or right-click
-                  menu), on any site, no permission prompt needed. Turn this on for the old "always ready" behavior —
-                  automatic translation, the floating bubble, and hover-translate everywhere — which needs a one-time
-                  site-access permission.
-                </p>
-              </span>
-            </label>
             <label class="row">
               <span>Service</span>
               <select

@@ -1,11 +1,13 @@
 /**
- * Gen 2 Session 4: since `host_permissions` no longer unconditionally
- * covers every site (see wxt.config.ts's header comment), content-main's
- * static `<all_urls>` match only actually runs on origins where the user
- * has granted the optional broad permission. Everywhere else, the first
- * message to a tab's content script fails with "no receiver" — this
- * catches that specific case, injects the content script on demand via
- * the calling context's `activeTab` grant, and retries.
+ * `host_permissions` is unconditional (`<all_urls>`) and content-main is a
+ * static `content_scripts` entry, so this normally isn't needed — every
+ * tab gets it automatically on load. The one real gap: a tab that was
+ * already open *before* this extension was installed or reloaded never
+ * got that static injection (content_scripts only runs on (re)navigation,
+ * not retroactively into existing tabs). This catches the resulting
+ * "no receiver" error on the first message to such a tab, injects
+ * content-main on demand via the calling context's `activeTab` grant, and
+ * retries.
  *
  * Every call site using this must run directly inside a user-gesture
  * handler — `action.onClicked`/`contextMenus.onClicked`/`commands.onCommand`
