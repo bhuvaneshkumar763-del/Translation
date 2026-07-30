@@ -612,12 +612,33 @@ calling anything done:
    tracked, see "Current status" above. Run `npm run lint:fix` for new code
    you write, but don't feel obligated to fix unrelated pre-existing
    findings while working on something else.
-9. **Releasing** (Session 5): `npm run changeset` to record a change (picks
-   a bump type + writes a short description to `.changeset/`), `npm run
-   version` to apply every pending changeset — bumps `package.json` and
-   prepends a `CHANGELOG.md` entry in one step. Not wired into CI as an
-   automated bot (no established release/tag process to gate it on) — run
-   both manually when a release is actually being cut.
+9. **Releasing** (Session 5, automated in a later follow-up): `npm run
+   changeset` to record a change (picks a bump type + writes a short
+   description to `.changeset/`), `npm run version` to apply every pending
+   changeset — bumps `package.json` and prepends a `CHANGELOG.md` entry in
+   one step. Once that bump lands on `main`/a `claude/**` branch and CI
+   passes, `.github/workflows/release.yml` takes over automatically: it
+   builds both browser targets, packages the zips (+ the Firefox sources
+   zip AMO review needs), and publishes a GitHub Release with them
+   attached — gated on `workflow_run` watching CI's own conclusion, so a
+   broken build never gets auto-released just because `package.json`
+   changed. Idempotent (checks `gh release view` for that version first),
+   so it's safe to run on every CI completion, not just version-bump
+   commits.
+   - **Currently in changesets prerelease ("beta") mode** — entered via
+     `npx changeset pre enter beta`, so `npm run version` produces versions
+     like `12.1.0-beta.0` (auto-incrementing the trailing number each
+     time) instead of a plain `X.Y.Z`, and every such release is marked
+     "Pre-release" on GitHub (the workflow detects the `-` and adds
+     `--prerelease`). Chrome's manifest `version` field can't hold a
+     prerelease suffix (numeric dot-segments only) — WXT already handles
+     this natively: `version` gets simplified to the plain `12.1.0` for
+     store validity, and `version_name` (Chrome-only; Firefox doesn't get
+     this field) carries the full `12.1.0-beta.0` string so it's still
+     visible in `chrome://extensions` and the Web Store listing. When this
+     project is ready to leave beta, run `npx changeset pre exit` once —
+     after that, `npm run version` goes back to producing plain `X.Y.Z`
+     releases.
 
 A real bug was caught by exactly this loop: a Solid.js native `<select>`
 bound via `value={signal()}` silently stopped resetting after a user pick,
