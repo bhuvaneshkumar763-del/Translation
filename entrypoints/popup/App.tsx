@@ -1,6 +1,7 @@
 import { createResource, createSignal, For, onMount, Show } from 'solid-js';
+import { createStore } from 'solid-js/store';
 import type { Browser } from 'wxt/browser';
-import type { Config } from '@/modules/config/schema';
+import { type Config, type ConfigKey, defaultConfig } from '@/modules/config/schema';
 import { twpConfig } from '@/modules/config/store';
 import { codeToLanguage, fixTLanguageCode } from '@/modules/languages';
 import { ALL_SITES_PERMISSION } from '@/modules/messaging/contentMainRegistration';
@@ -37,9 +38,8 @@ async function getActiveTab(): Promise<Browser.tabs.Tab | undefined> {
   return tab;
 }
 
-function effectiveUiLanguage(): string {
-  const configured = twpConfig.get('uiLanguage');
-  return configured !== 'default' ? configured : browser.i18n.getUILanguage();
+function effectiveUiLanguage(uiLanguage: string): string {
+  return uiLanguage !== 'default' ? uiLanguage : browser.i18n.getUILanguage();
 }
 
 function App() {
@@ -53,8 +53,22 @@ function App() {
   const [showMore, setShowMore] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
 
+  // `cfg` mirrors twpConfig's state as a genuine Solid store, for every
+  // config-driven JSX read below other than `service`/`targetLanguage`
+  // (which already have their own dedicated signals, incl. deliberate
+  // optimistic updates in translateToLanguage/onSwapService below — left
+  // untouched). twpConfig.get() read directly in JSX is NOT reactive: it's
+  // a plain mutable object property, not a signal, so Solid has nothing to
+  // subscribe to and the expression only evaluates once, at mount. This
+  // was a real bug here too (same root cause fixed in options/App.tsx):
+  // toggling "always translate this site" correctly persisted the setting
+  // but the checkbox never visually reflected other list-driven state
+  // (hover-translate lists, per-host bubble overrides) changing elsewhere.
+  const [cfg, setCfg] = createStore<Config>({ ...defaultConfig });
+
   onMount(async () => {
     await twpConfig.onReady();
+    setCfg(Object.fromEntries((Object.keys(defaultConfig) as ConfigKey[]).map((k) => [k, twpConfig.get(k)])) as Config);
     const tab = await getActiveTab();
     if (!tab?.id) return;
     setTabId(tab.id);
@@ -73,6 +87,7 @@ function App() {
     setReady(true);
 
     twpConfig.onChanged((name, value) => {
+      setCfg(name, value as never);
       if (name === 'pageTranslatorService') setServiceSignal(value as Config['pageTranslatorService']);
       else if (name === 'targetLanguage') setTargetLanguageSignal((value as string | null) ?? 'en');
     });
@@ -220,7 +235,7 @@ function App() {
   }
 
   const [langResource] = createResource(originalLanguage, (lang) =>
-    codeToLanguage(lang === 'und' ? 'en' : lang, effectiveUiLanguage()),
+    codeToLanguage(lang === 'und' ? 'en' : lang, effectiveUiLanguage(cfg.uiLanguage)),
   );
 
   const translated = () => pageState() === 'translated';
@@ -248,7 +263,7 @@ function App() {
         </button>
 
         <div class="langPills" role="group" aria-label="Quick target languages">
-          <For each={twpConfig.get('targetLanguages').slice(0, 3)}>
+          <For each={cfg.targetLanguages.slice(0, 3)}>
             {(code) => (
               <button
                 type="button"
@@ -257,7 +272,7 @@ function App() {
                 on:click={() => translateToLanguage(code)}
                 disabled={busy()}
               >
-                {codeToLanguage(code, effectiveUiLanguage())}
+                {codeToLanguage(code, effectiveUiLanguage(cfg.uiLanguage))}
               </button>
             )}
           </For>
@@ -276,7 +291,7 @@ function App() {
               <span>Always translate from {langResource()}</span>
               <input
                 type="checkbox"
-                checked={twpConfig.get('alwaysTranslateLangs').includes(originalLanguage())}
+                checked={cfg.alwaysTranslateLangs.includes(originalLanguage())}
                 on:change={toggleAlwaysTranslateLang}
               />
             </label>
@@ -285,7 +300,7 @@ function App() {
             <span>Always translate this site</span>
             <input
               type="checkbox"
-              checked={twpConfig.get('alwaysTranslateSites').includes(hostname())}
+              checked={cfg.alwaysTranslateSites.includes(hostname())}
               on:change={toggleAlwaysTranslateSite}
             />
           </label>
@@ -294,9 +309,9 @@ function App() {
             <input
               type="checkbox"
               checked={
-                Object.hasOwn(twpConfig.get('fpBubbleByHost') ?? {}, hostname())
-                  ? twpConfig.get('fpBubbleByHost')[hostname()] !== 'no'
-                  : twpConfig.get('fpShowFloatingBubble') !== 'no'
+                Object.hasOwn(cfg.fpBubbleByHost ?? {}, hostname())
+                  ? cfg.fpBubbleByHost[hostname()] !== 'no'
+                  : cfg.fpShowFloatingBubble !== 'no'
               }
               on:change={toggleFloatingBubble}
             />
@@ -324,7 +339,7 @@ function App() {
               <span>Show the button to translate selected text</span>
               <input
                 type="checkbox"
-                checked={twpConfig.get('showTranslateSelectedButton') === 'yes'}
+                checked={cfg.showTranslateSelectedButton === 'yes'}
                 on:change={toggleShowTranslateSelectedButton}
               />
             </label>
@@ -332,7 +347,7 @@ function App() {
               <span>Show original text when hovering</span>
               <input
                 type="checkbox"
-                checked={twpConfig.get('showOriginalTextWhenHovering') === 'yes'}
+                checked={cfg.showOriginalTextWhenHovering === 'yes'}
                 on:change={toggleShowOriginalOnHover}
               />
             </label>
@@ -340,7 +355,7 @@ function App() {
               <span>Show translation when hovering over this site</span>
               <input
                 type="checkbox"
-                checked={twpConfig.get('sitesToTranslateWhenHovering').includes(hostname())}
+                checked={cfg.sitesToTranslateWhenHovering.includes(hostname())}
                 on:change={toggleShowTranslatedOnHoverSite}
               />
             </label>
@@ -349,7 +364,7 @@ function App() {
                 <span>Show translation when hovering over websites in {langResource()}</span>
                 <input
                   type="checkbox"
-                  checked={twpConfig.get('langsToTranslateWhenHovering').includes(originalLanguage())}
+                  checked={cfg.langsToTranslateWhenHovering.includes(originalLanguage())}
                   on:change={toggleShowTranslatedOnHoverLang}
                 />
               </label>

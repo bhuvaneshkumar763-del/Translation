@@ -1,7 +1,8 @@
 import { createSignal, For, onMount, Show } from 'solid-js';
-import type { Config } from '@/modules/config/schema';
+import { createStore } from 'solid-js/store';
+import { type Config, type ConfigKey, defaultConfig } from '@/modules/config/schema';
 import { twpConfig } from '@/modules/config/store';
-import { codeToLanguage, fixTLanguageCode, uiLanguages } from '@/modules/languages';
+import { codeToLanguage, fixTLanguageCode, getLanguageList, uiLanguages } from '@/modules/languages';
 import { ALL_SITES_PERMISSION } from '@/modules/messaging/contentMainRegistration';
 import { sendMessage } from '@/modules/messaging/protocol';
 import { isProviderAvailable } from '@/modules/providers/descriptors';
@@ -17,9 +18,13 @@ import { isProviderAvailable } from '@/modules/providers/descriptors';
  * settings.
  */
 
-function effectiveUiLanguage(): string {
-  const configured = twpConfig.get('uiLanguage');
-  return configured !== 'default' ? configured : browser.i18n.getUILanguage();
+function effectiveUiLanguage(uiLanguage: string): string {
+  return uiLanguage !== 'default' ? uiLanguage : browser.i18n.getUILanguage();
+}
+
+/** Sorted [code, displayName] pairs for a language-picker <select>, per user request — free-text ISO codes ("fr", "pt-BR") aren't friendly for anyone who doesn't already know them. */
+function languageOptions(uiLanguage: string): Array<[string, string]> {
+  return Object.entries(getLanguageList(effectiveUiLanguage(uiLanguage))).sort((a, b) => a[1].localeCompare(b[1]));
 }
 
 function Section(props: { title: string; children: unknown }) {
@@ -110,27 +115,45 @@ function StringListEditor(props: {
   onRemove(value: string): void;
   formatLabel?(value: string): string;
   placeholder?: string;
+  // When provided, the add control is a <select> of these code/label pairs
+  // instead of a free-text <input> — used for language pickers, where
+  // free-text (raw ISO codes like "fr"/"pt-BR") is unfriendly for anyone
+  // who doesn't already know the code. Site-hostname lists keep the
+  // free-text input, since hostnames aren't from a fixed set.
+  languageOptions?: Array<[code: string, label: string]>;
 }) {
   const [input, setInput] = createSignal('');
-  function add(): void {
-    const value = input().trim();
-    if (!value) return;
-    props.onAdd(value);
+  function add(value?: string): void {
+    const v = (value ?? input()).trim();
+    if (!v) return;
+    props.onAdd(v);
     setInput('');
   }
   return (
     <div class="listEditor">
       <div class="listRow addRow">
-        <input
-          type="text"
-          value={input()}
-          placeholder={props.placeholder ?? 'value'}
-          on:input={(e) => setInput((e.currentTarget as HTMLInputElement).value)}
-          on:keydown={(e) => {
-            if (e.key === 'Enter') add();
-          }}
-        />
-        <button on:click={add}>Add</button>
+        <Show
+          when={props.languageOptions}
+          fallback={
+            <input
+              type="text"
+              value={input()}
+              placeholder={props.placeholder ?? 'value'}
+              on:input={(e) => setInput((e.currentTarget as HTMLInputElement).value)}
+              on:keydown={(e) => {
+                if (e.key === 'Enter') add();
+              }}
+            />
+          }
+        >
+          <select value={input()} on:change={(e) => setInput((e.currentTarget as HTMLSelectElement).value)}>
+            <option value="" disabled>
+              Choose a language…
+            </option>
+            <For each={props.languageOptions}>{([code, label]) => <option value={code}>{label}</option>}</For>
+          </select>
+        </Show>
+        <button on:click={() => add()}>Add</button>
       </div>
       <For each={props.values}>
         {(value) => (
@@ -152,20 +175,36 @@ function StringListEditor(props: {
 function App() {
   const [ready, setReady] = createSignal(false);
   const [activeTab, setActiveTab] = createSignal<TabId>('general');
-  const [, forceUpdate] = createSignal(0);
-  function bump(): void {
-    forceUpdate((n) => n + 1);
-  }
+
+  // `cfg` is a genuine Solid store mirroring twpConfig's state — every JSX
+  // read below goes through this, not twpConfig.get() directly. Reading
+  // twpConfig.get() straight from JSX is NOT reactive: it's a plain mutable
+  // object property, not a Solid signal/store, so Solid has nothing to
+  // subscribe to and the expression only ever evaluates once, at mount.
+  // This file previously "solved" that with a bump()/forceUpdate() counter
+  // whose signal *getter* was destructured away and never read anywhere —
+  // meaning bump() updated a signal with zero subscribers, a complete no-op
+  // for rendering. The result: adding/removing a site or language in any
+  // of the list editors below correctly persisted to storage (confirmed via
+  // a real Playwright check: the item was there after a full page reload)
+  // but never appeared or disappeared on screen until the page was
+  // reloaded — a real, user-reported regression, not a hypothetical one.
+  const [cfg, setCfg] = createStore<Config>({ ...defaultConfig });
 
   onMount(async () => {
     await twpConfig.onReady();
+    setCfg(Object.fromEntries((Object.keys(defaultConfig) as ConfigKey[]).map((k) => [k, twpConfig.get(k)])) as Config);
     setReady(true);
-    twpConfig.onChanged(() => bump());
+    // Covers changes from OTHER contexts (another tab/window). This file's
+    // own writes below also call setCfg directly for an immediate update,
+    // since the storage.onChanged round trip this listener relies on isn't
+    // guaranteed to resolve before this file's own set() promise does.
+    twpConfig.onChanged((name, value) => setCfg(name, value as never));
   });
 
   async function set<K extends keyof Config>(name: K, value: Config[K]): Promise<void> {
     await twpConfig.set(name, value);
-    bump();
+    setCfg(name, value as never);
   }
 
   // Gen 2 Session 4: reflects a real chrome.permissions grant, not a config
@@ -248,10 +287,14 @@ function App() {
 
   function addCustomDictEntry(key: string, value: string): void {
     if (!key || !value) return;
-    void twpConfig.addKeyWordToCustomDictionary(key, value).then(bump);
+    void twpConfig
+      .addKeyWordToCustomDictionary(key, value)
+      .then(() => setCfg('customDictionary', twpConfig.get('customDictionary')));
   }
   function removeCustomDictEntry(key: string): void {
-    void twpConfig.removeKeyWordFromCustomDictionary(key).then(bump);
+    void twpConfig
+      .removeKeyWordFromCustomDictionary(key)
+      .then(() => setCfg('customDictionary', twpConfig.get('customDictionary')));
   }
 
   const [dictKey, setDictKey] = createSignal('');
@@ -371,7 +414,7 @@ function App() {
             <label class="row">
               <span>Interface language</span>
               <select
-                value={twpConfig.get('uiLanguage')}
+                value={cfg.uiLanguage}
                 on:change={(e) => void set('uiLanguage', (e.currentTarget as HTMLSelectElement).value)}
               >
                 <option value="default">Match browser</option>
@@ -381,7 +424,7 @@ function App() {
             <label class="row">
               <span>Dark mode</span>
               <select
-                value={twpConfig.get('darkMode')}
+                value={cfg.darkMode}
                 on:change={(e) =>
                   void set('darkMode', (e.currentTarget as HTMLSelectElement).value as Config['darkMode'])
                 }
@@ -394,9 +437,9 @@ function App() {
             <div class="fieldGroup">
               <span>Preferred target languages (most recent first, up to 10)</span>
               <StringListEditor
-                values={twpConfig.get('targetLanguages')}
-                formatLabel={(c) => codeToLanguage(c, effectiveUiLanguage())}
-                placeholder="language code, e.g. es"
+                values={cfg.targetLanguages}
+                formatLabel={(c) => codeToLanguage(c, effectiveUiLanguage(cfg.uiLanguage))}
+                languageOptions={languageOptions(cfg.uiLanguage)}
                 onAdd={addTargetLanguage}
                 onRemove={removeTargetLanguage}
               />
@@ -440,7 +483,7 @@ function App() {
             <label class="row">
               <span>Service</span>
               <select
-                value={twpConfig.get('pageTranslatorService')}
+                value={cfg.pageTranslatorService}
                 on:change={(e) =>
                   void set(
                     'pageTranslatorService',
@@ -464,7 +507,7 @@ function App() {
                   <label class="check">
                     <input
                       type="checkbox"
-                      checked={twpConfig.get('enabledServices').includes(s)}
+                      checked={cfg.enabledServices.includes(s)}
                       on:change={() => {
                         const current = twpConfig.get('enabledServices');
                         void set(
@@ -481,7 +524,7 @@ function App() {
             <div class="fieldGroup">
               <span>Always translate these sites</span>
               <StringListEditor
-                values={twpConfig.get('alwaysTranslateSites')}
+                values={cfg.alwaysTranslateSites}
                 placeholder="example.com"
                 onAdd={(v) => addInArray('alwaysTranslateSites', v)}
                 onRemove={(v) => removeFromArray('alwaysTranslateSites', v)}
@@ -490,7 +533,7 @@ function App() {
             <div class="fieldGroup">
               <span>Never translate these sites</span>
               <StringListEditor
-                values={twpConfig.get('neverTranslateSites')}
+                values={cfg.neverTranslateSites}
                 placeholder="example.com"
                 onAdd={(v) => addInArray('neverTranslateSites', v)}
                 onRemove={(v) => removeFromArray('neverTranslateSites', v)}
@@ -499,9 +542,9 @@ function App() {
             <div class="fieldGroup">
               <span>Always translate these languages</span>
               <StringListEditor
-                values={twpConfig.get('alwaysTranslateLangs')}
-                formatLabel={(c) => codeToLanguage(c, effectiveUiLanguage())}
-                placeholder="language code, e.g. fr"
+                values={cfg.alwaysTranslateLangs}
+                formatLabel={(c) => codeToLanguage(c, effectiveUiLanguage(cfg.uiLanguage))}
+                languageOptions={languageOptions(cfg.uiLanguage)}
                 onAdd={(v) => addInArray('alwaysTranslateLangs', fixTLanguageCode(v) ?? v)}
                 onRemove={(v) => removeFromArray('alwaysTranslateLangs', v)}
               />
@@ -509,9 +552,9 @@ function App() {
             <div class="fieldGroup">
               <span>Never translate these languages</span>
               <StringListEditor
-                values={twpConfig.get('neverTranslateLangs')}
-                formatLabel={(c) => codeToLanguage(c, effectiveUiLanguage())}
-                placeholder="language code, e.g. en"
+                values={cfg.neverTranslateLangs}
+                formatLabel={(c) => codeToLanguage(c, effectiveUiLanguage(cfg.uiLanguage))}
+                languageOptions={languageOptions(cfg.uiLanguage)}
                 onAdd={(v) => addInArray('neverTranslateLangs', fixTLanguageCode(v) ?? v)}
                 onRemove={(v) => removeFromArray('neverTranslateLangs', v)}
               />
@@ -522,7 +565,7 @@ function App() {
             <label class="check">
               <input
                 type="checkbox"
-                checked={twpConfig.get('fpShowFloatingBubble') === 'yes'}
+                checked={cfg.fpShowFloatingBubble === 'yes'}
                 on:change={(e) =>
                   void set('fpShowFloatingBubble', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
                 }
@@ -531,7 +574,7 @@ function App() {
             </label>
             <div class="fieldGroup">
               <span>Per-site overrides</span>
-              <For each={Object.entries(twpConfig.get('fpBubbleByHost'))}>
+              <For each={Object.entries(cfg.fpBubbleByHost)}>
                 {([host, value]) => (
                   <div class="listRow">
                     <span>
@@ -550,7 +593,7 @@ function App() {
                   </div>
                 )}
               </For>
-              <Show when={Object.keys(twpConfig.get('fpBubbleByHost')).length === 0}>
+              <Show when={Object.keys(cfg.fpBubbleByHost).length === 0}>
                 <div class="emptyHint">None</div>
               </Show>
             </div>
@@ -562,7 +605,7 @@ function App() {
             <label class="row">
               <span>Service</span>
               <select
-                value={twpConfig.get('textTranslatorService')}
+                value={cfg.textTranslatorService}
                 on:change={(e) =>
                   void set(
                     'textTranslatorService',
@@ -584,7 +627,7 @@ function App() {
             <label class="check">
               <input
                 type="checkbox"
-                checked={twpConfig.get('showTranslateSelectedButton') === 'yes'}
+                checked={cfg.showTranslateSelectedButton === 'yes'}
                 on:change={(e) =>
                   void set('showTranslateSelectedButton', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
                 }
@@ -594,7 +637,7 @@ function App() {
             <label class="check">
               <input
                 type="checkbox"
-                checked={twpConfig.get('translateSelectedWhenPressTwice') === 'yes'}
+                checked={cfg.translateSelectedWhenPressTwice === 'yes'}
                 on:change={(e) =>
                   void set(
                     'translateSelectedWhenPressTwice',
@@ -607,7 +650,7 @@ function App() {
             <label class="check">
               <input
                 type="checkbox"
-                checked={twpConfig.get('translateTextOverMouseWhenPressTwice') === 'yes'}
+                checked={cfg.translateTextOverMouseWhenPressTwice === 'yes'}
                 on:change={(e) =>
                   void set(
                     'translateTextOverMouseWhenPressTwice',
@@ -623,7 +666,7 @@ function App() {
             <label class="check">
               <input
                 type="checkbox"
-                checked={twpConfig.get('showOriginalTextWhenHovering') === 'yes'}
+                checked={cfg.showOriginalTextWhenHovering === 'yes'}
                 on:change={(e) =>
                   void set('showOriginalTextWhenHovering', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
                 }
@@ -633,7 +676,7 @@ function App() {
             <div class="fieldGroup">
               <span>Show translations when hovering on these sites</span>
               <StringListEditor
-                values={twpConfig.get('sitesToTranslateWhenHovering')}
+                values={cfg.sitesToTranslateWhenHovering}
                 placeholder="example.com"
                 onAdd={(v) => addInArray('sitesToTranslateWhenHovering', v)}
                 onRemove={(v) => removeFromArray('sitesToTranslateWhenHovering', v)}
@@ -642,9 +685,9 @@ function App() {
             <div class="fieldGroup">
               <span>Show translations when hovering on pages in these languages</span>
               <StringListEditor
-                values={twpConfig.get('langsToTranslateWhenHovering')}
-                formatLabel={(c) => codeToLanguage(c, effectiveUiLanguage())}
-                placeholder="language code"
+                values={cfg.langsToTranslateWhenHovering}
+                formatLabel={(c) => codeToLanguage(c, effectiveUiLanguage(cfg.uiLanguage))}
+                languageOptions={languageOptions(cfg.uiLanguage)}
                 onAdd={(v) => addInArray('langsToTranslateWhenHovering', fixTLanguageCode(v) ?? v)}
                 onRemove={(v) => removeFromArray('langsToTranslateWhenHovering', v)}
               />
@@ -657,7 +700,7 @@ function App() {
             <label class="row">
               <span>Service</span>
               <select
-                value={twpConfig.get('textToSpeechService')}
+                value={cfg.textToSpeechService}
                 on:change={(e) =>
                   void set(
                     'textToSpeechService',
@@ -670,24 +713,24 @@ function App() {
               </select>
             </label>
             <label class="row">
-              <span>Speed ({twpConfig.get('ttsSpeed')})</span>
+              <span>Speed ({cfg.ttsSpeed})</span>
               <input
                 type="range"
                 min="0.5"
                 max="2"
                 step="0.1"
-                value={twpConfig.get('ttsSpeed')}
+                value={cfg.ttsSpeed}
                 on:input={(e) => void set('ttsSpeed', Number((e.currentTarget as HTMLInputElement).value))}
               />
             </label>
             <label class="row">
-              <span>Volume ({twpConfig.get('ttsVolume')})</span>
+              <span>Volume ({cfg.ttsVolume})</span>
               <input
                 type="range"
                 min="0"
                 max="1"
                 step="0.1"
-                value={twpConfig.get('ttsVolume')}
+                value={cfg.ttsVolume}
                 on:input={(e) => void set('ttsVolume', Number((e.currentTarget as HTMLInputElement).value))}
               />
             </label>
@@ -719,7 +762,7 @@ function App() {
                 Add
               </button>
             </div>
-            <For each={Object.entries(twpConfig.get('customDictionary'))}>
+            <For each={Object.entries(cfg.customDictionary)}>
               {([key, value]) => (
                 <div class="listRow">
                   <span>
@@ -731,7 +774,7 @@ function App() {
                 </div>
               )}
             </For>
-            <Show when={Object.keys(twpConfig.get('customDictionary')).length === 0}>
+            <Show when={Object.keys(cfg.customDictionary).length === 0}>
               <div class="emptyHint">None</div>
             </Show>
           </Section>
@@ -823,7 +866,7 @@ function App() {
             <label class="check">
               <input
                 type="checkbox"
-                checked={twpConfig.get('enableDiskCache') === 'yes'}
+                checked={cfg.enableDiskCache === 'yes'}
                 on:change={(e) =>
                   void set('enableDiskCache', (e.currentTarget as HTMLInputElement).checked ? 'yes' : 'no')
                 }

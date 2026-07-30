@@ -422,6 +422,32 @@ above for what each one actually shipped.
   *build* validation job to CI, but this repo's Playwright harness only
   ever drives Chromium (see "Testing" below). A genuine Firefox runtime
   check is still open.
+- **"Always translate" reported broken on Orion (iOS)** by a real user —
+  the manual "translate this page" button works, but sites/languages added
+  to an always-translate list don't auto-translate on a later visit; the
+  user has to click every time. Diagnosed from the symptom, not verified
+  against the actual browser (no way to test Orion/iOS from this
+  environment): Orion is WebKit-based, not Chromium, and its WebExtension
+  implementation most likely supports the older, more fundamental
+  `scripting.executeScript` (what the manual-click path uses, via
+  `ensureContentScript.ts`) without supporting the newer
+  `scripting.registerContentScripts`/`getRegisteredContentScripts`/
+  `unregisterContentScripts` trio that `contentMainRegistration.ts`'s
+  `syncContentMainRegistration()` needs to keep "always translate" working
+  across future page loads with no fresh gesture — exactly matching the
+  reported split (button works, "always" doesn't). Session 5 added a
+  feature-detection guard there (`if (!browser.scripting?.registerContentScripts) return;`)
+  so an unsupported browser degrades to "always translate only takes
+  effect right after a click" instead of throwing an unhandled rejection
+  out of a fire-and-forget background call — but this does not (and can't,
+  from the extension side) make the automatic behavior actually work on
+  such a browser; there's no MV3-standard alternative mechanism for
+  "run this script automatically on future page loads once a permission is
+  granted" other than `registerContentScripts` or a static
+  `content_scripts` manifest entry (which brings back the Session 4
+  install-time-broad-permission problem this whole architecture exists to
+  avoid). Safari/WebKit was never a decided target for this project (see
+  `ROADMAP.md`) — this is the concrete shape that gap takes in practice.
 
 ## Repo layout
 

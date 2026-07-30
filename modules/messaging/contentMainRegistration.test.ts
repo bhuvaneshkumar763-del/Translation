@@ -77,4 +77,16 @@ describe('syncContentMainRegistration', () => {
     expect(scripting.registerContentScripts).not.toHaveBeenCalled();
     expect(scripting.unregisterContentScripts).not.toHaveBeenCalled();
   });
+
+  it('returns early without throwing when scripting.registerContentScripts is unsupported (e.g. some WebKit-based browsers)', async () => {
+    const permissionsContains = vi.fn(async () => true);
+    vi.stubGlobal('browser', {
+      permissions: { contains: permissionsContains },
+      scripting: {}, // no registerContentScripts/getRegisteredContentScripts/unregisterContentScripts
+    });
+
+    await expect(syncContentMainRegistration()).resolves.toBeUndefined();
+    // Bails before even checking the permission — nothing useful to sync.
+    expect(permissionsContains).not.toHaveBeenCalled();
+  });
 });
