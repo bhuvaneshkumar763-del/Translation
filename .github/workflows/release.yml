@@ -14,7 +14,14 @@ on:
 
 jobs:
   release:
-    if: github.event.workflow_run.conclusion == 'success'
+    # CI's own workflow runs twice per push while PR #1 is open (once for
+    # the `push` event, once for `pull_request`) — both completions fire
+    # this workflow_run trigger independently. Restricting to the `push`-
+    # triggered CI run avoids two Release jobs racing to create the same
+    # tag (confirmed the hard way: the loser's `gh release create` failed
+    # with "already exists" — harmless since the winner's release was
+    # correct, but a noisy, confusing red X for no real reason).
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
