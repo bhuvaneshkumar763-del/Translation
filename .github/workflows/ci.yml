@@ -61,6 +61,13 @@ jobs:
           name: chrome-extension-zip
           path: .output/*-chrome.zip
           if-no-files-found: error
+          # upload-artifact@v4 treats any file inside a dot-prefixed
+          # directory as "hidden" and silently skips it — including .output,
+          # which is where wxt writes builds/zips — unless this is set.
+          # Without it, the glob genuinely matched zero files even though
+          # the zip step ran successfully right before, which is exactly
+          # what broke CI the first time this workflow ran for real.
+          include-hidden-files: true
 
   build-firefox:
     # Session 5: build:firefox existed as an npm script since the skeleton
@@ -104,6 +111,9 @@ jobs:
           name: firefox-extension-zip
           path: .output/*-firefox.zip
           if-no-files-found: error
+          # See the matching comment on the Chrome upload step — .output is
+          # a dot-prefixed directory, silently excluded by default.
+          include-hidden-files: true
 
       - name: Upload Firefox sources artifact
         uses: actions/upload-artifact@v4
@@ -111,3 +121,4 @@ jobs:
           name: firefox-sources-zip
           path: .output/*-sources.zip
           if-no-files-found: error
+          include-hidden-files: true
