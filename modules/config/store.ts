@@ -7,7 +7,6 @@ import {
   type ConfigKey,
   defaultConfig,
   legacyStorageKeyByConfigKey,
-  SYNCED_CONFIG_KEYS,
 } from './schema';
 
 /**
@@ -33,21 +32,37 @@ import {
 
 const DEFAULT_TARGET_LANGUAGES = ['en', 'es', 'de'];
 
-// Gen 2 Session 4: cross-device settings sync. Feature-detected rather than
-// assumed — storage.sync exists but can genuinely fail at the API level on
-// Firefox for a temporary/unsigned install with no declared gecko id (a real
-// gap already caught once this session for optional_host_permissions, same
-// caution applies here). When unavailable, every "synced" key silently
-// falls back to local: storage instead of throwing on every config read/write.
-const syncStorageAvailable = typeof browser !== 'undefined' && !!browser.storage?.sync;
-
-function storageKeyFor(name: ConfigKey): `local:${string}` | `sync:${string}` {
-  if (syncStorageAvailable && SYNCED_CONFIG_KEYS.has(name)) return `sync:${name}`;
+/**
+ * Every config key lives in `chrome.storage.local`, full stop.
+ *
+ * **Do not reintroduce `chrome.storage.sync` here.** Gen 2 Session 4 routed a
+ * subset of keys (`SYNCED_CONFIG_KEYS`, now deleted) to `sync:` for
+ * cross-device settings sync, feature-detected on `!!browser.storage.sync`.
+ * That detection only proves the API *exists*, not that it *works* — and on
+ * WebKit-based browsers (a real user hit this on Orion for iOS) it can be
+ * present-but-non-functional, or work in extension pages while returning
+ * nothing in content scripts. The result was a split brain with no error
+ * anywhere: the options page wrote and read `sync:alwaysTranslateSites`, so a
+ * site visibly appeared in the always-translate list, while content-main read
+ * the same key, got an empty array, and therefore never auto-translated. That
+ * is exactly the "it's in the list but the site never translates" report, and
+ * it survived the separate permission-model revert (see CLAUDE.md) because it
+ * was always an independent second bug that happened to ship in the same
+ * session.
+ *
+ * The pre-rewrite fork this project came from used `chrome.storage.local`
+ * exclusively and never had this failure mode. Asked to choose between a
+ * dual-write scheme that preserved sync and simply dropping sync, the user
+ * chose to drop it ("it's just a couple clicks in a site I can do it").
+ * Export/import in Settings → Backup remains the supported way to move
+ * settings between devices.
+ */
+function storageKeyFor(name: ConfigKey): `local:${string}` {
   return `local:${legacyStorageKeyByConfigKey[name] ?? name}`;
 }
 
 const configSchemaVersionItem = storage.defineItem<number>('local:configSchemaVersion', { fallback: 0 });
-const syncMigrationCompleteItem = storage.defineItem<boolean>('local:syncMigrationComplete', { fallback: false });
+const syncReclaimCompleteItem = storage.defineItem<boolean>('local:syncReclaimComplete', { fallback: false });
 
 /** Runs any pending migrations against raw storage before the normal per-key loading below reads it. No-op on a fully up-to-date install (the common case) since it's gated on the stored version number. */
 async function migrateStorageIfNeeded(): Promise<void> {
@@ -67,41 +82,45 @@ async function migrateStorageIfNeeded(): Promise<void> {
 }
 
 /**
- * One-time upgrade for existing installs: newly-synced keys (see
- * SYNCED_CONFIG_KEYS in schema.ts) previously lived only under local:
- * storage. Without this, an existing user's already-configured settings
- * would appear to silently reset to defaults on the device that introduces
- * sync (the sync: item starts empty; the old local: value is still there,
- * just orphaned under a key nothing reads anymore). Runs once per install,
- * gated by its own flag rather than the general schema version, since it's
- * an unrelated concern and shouldn't block/be blocked by future schema bumps.
+ * One-time rescue for anyone who ran a build between Gen 2 Session 4 and the
+ * removal of sync storage: their settings for the formerly-synced keys were
+ * written to `chrome.storage.sync` and are now orphaned, since nothing reads
+ * that area anymore. Without this, dropping sync would look to those users
+ * like their languages and always/never-translate lists silently reset to
+ * defaults — the second confusing "my settings vanished" event in a row.
+ *
+ * Copies any such value back into `local:` **only where local doesn't already
+ * have one**, so a local value (which is what every context actually reads,
+ * and therefore what the user has been editing most recently) always wins
+ * over a possibly-stale synced copy. Runs once, behind its own flag.
  */
-async function migrateLocalSettingsToSyncIfNeeded(): Promise<void> {
-  if (!syncStorageAvailable) return;
-  if (await syncMigrationCompleteItem.getValue()) return;
+async function reclaimSettingsStrandedInSyncIfNeeded(): Promise<void> {
+  if (typeof browser === 'undefined' || !browser.storage?.sync) return;
+  if (await syncReclaimCompleteItem.getValue()) return;
 
-  const localEntries = await browser.storage.local.get(null);
-  const toSync: Record<string, unknown> = {};
-  for (const name of Object.keys(defaultConfig) as ConfigKey[]) {
-    if (!SYNCED_CONFIG_KEYS.has(name)) continue;
-    const rawLocalKey = legacyStorageKeyByConfigKey[name] ?? name;
-    if (Object.hasOwn(localEntries, rawLocalKey)) {
-      toSync[name] = localEntries[rawLocalKey];
-    }
-  }
+  try {
+    const [syncEntries, localEntries] = await Promise.all([
+      browser.storage.sync.get(null),
+      browser.storage.local.get(null),
+    ]);
 
-  if (Object.keys(toSync).length > 0) {
-    try {
-      await browser.storage.sync.set(toSync);
-    } catch (e) {
-      // Most likely cause: this batch alone exceeded a sync quota (e.g. a
-      // very long-lived install with huge always/never-translate lists).
-      // Not fatal — those settings simply stay local-only going forward,
-      // same as if sync were unavailable for this key.
-      console.error('[twpConfig] failed to migrate existing settings to sync storage', e);
+    const toLocal: Record<string, unknown> = {};
+    for (const name of Object.keys(defaultConfig) as ConfigKey[]) {
+      const rawLocalKey = legacyStorageKeyByConfigKey[name] ?? name;
+      if (Object.hasOwn(localEntries, rawLocalKey)) continue; // local wins
+      if (Object.hasOwn(syncEntries, name)) toLocal[rawLocalKey] = syncEntries[name];
     }
+
+    if (Object.keys(toLocal).length > 0) {
+      await browser.storage.local.set(toLocal);
+    }
+  } catch (e) {
+    // Sync being unreadable is the whole reason this code exists — a browser
+    // where it throws is precisely the broken-sync case, and there's nothing
+    // to reclaim there anyway. Never let it block config init.
+    console.warn('[twpConfig] could not read sync storage while reclaiming old settings', e);
   }
-  await syncMigrationCompleteItem.setValue(true);
+  await syncReclaimCompleteItem.setValue(true);
 }
 
 const items = Object.fromEntries(
@@ -137,7 +156,7 @@ for (const name of Object.keys(items) as ConfigKey[]) {
 
 async function initConfig(): Promise<void> {
   await migrateStorageIfNeeded();
-  await migrateLocalSettingsToSyncIfNeeded();
+  await reclaimSettingsStrandedInSyncIfNeeded();
 
   // Load every key's current stored value (or its fallback) into state.
   await Promise.all(
@@ -243,14 +262,12 @@ export const twpConfig = {
     try {
       await items[name].setValue(value);
     } catch (e) {
-      // Only realistically hit for sync: items — a chrome.storage.sync quota
-      // (100KB total / 8KB per item) is a real, user-reachable limit for the
-      // unbounded arrays in SYNCED_CONFIG_KEYS (e.g. a very long
-      // always-translate site list), unlike local: storage's effectively
-      // unlimited quota. Degrade to "this write didn't sync" — state is
-      // already updated above so the current session still behaves
-      // correctly — rather than let it become an unhandled rejection that
-      // breaks whatever UI action triggered it.
+      // local: storage has an effectively unlimited quota, so this is now
+      // unlikely — kept because a storage write can still fail for reasons
+      // outside our control (disk pressure, a locked-down profile), and
+      // `state` is already updated above so the current session keeps
+      // behaving correctly. Better than an unhandled rejection breaking
+      // whatever UI action triggered the write.
       console.error(`[twpConfig] failed to persist "${name}"`, e);
     }
     // items[name].watch() above also fires from this same write (chrome

@@ -110,14 +110,23 @@ browsers whose extension support isn't built the same way Chrome's is —
 Orion on iOS being the one we heard about directly — with no way for those
 users to turn it back on. Went back to the simpler, reliable behavior.)
 
-**13. Most of your settings follow you to your other devices.**
-If you're signed into your browser's sync (the same feature that syncs
-your bookmarks and passwords across computers), Prism's language
-preferences, always/never-translate lists, and behavior toggles sync along
-with it automatically — no setup needed. Anything sensitive, like a
-plugged-in AI API key, stays on that one device only. You can also still
-export/import settings by hand from the Backup section, which is useful
-for moving things to a device without browser sync turned on.
+**13. Your settings stay on the device you set them on.**
+Everything you configure is saved locally, on that browser. If you want the
+same setup on another device, there's an export/import pair of buttons in
+Settings → Backup that copies it over in one file. (Prism briefly tried
+syncing settings between devices automatically, but on some browsers that
+storage silently didn't work — your settings would look correct in the
+settings screen while the translator itself couldn't see them, which is
+what made "always translate this site" appear broken. Not worth the
+breakage for something export/import already handles.)
+
+**14. A diagnostics button, if something seems wrong.**
+Settings → Advanced → Diagnostics runs a quick check of what's actually
+working in your browser — whether settings can be saved and read back,
+what the translator itself thinks your site/language lists contain, and
+which browser features are available. It's read-only and changes nothing.
+If something isn't behaving, run it and share the result — it turns
+"it doesn't work" into an exact answer.
 
 ## What it does NOT do (on purpose)
 
@@ -154,11 +163,11 @@ hover tooltips, the mobile bar, the selection popup, and all three helper
 windows — shares the same indigo "Prism" visual identity, replacing the
 old blue TWP styling.
 
-One thing worth knowing if you're comparing this to the pre-rebuild
-extension: the cross-device settings sync in item 13 is genuinely new —
-the old extension had none. The access model in item 12 is the same as the
-original extension always had (full access on every site from install,
-no per-site permission prompts) — an in-between version briefly asked
-before it could act on each site, but that broke automatic translation on
-some browsers with no way to fix it, so it went back to matching the
-original.
+If you're comparing this to the pre-rebuild extension: the way it stores
+settings (item 13) and the way it accesses sites (item 12) both now match
+the original extension exactly. Both were briefly changed during the
+rebuild — settings moved to cross-device sync, and site access became
+ask-first — and both changes turned out to break automatic translation on
+some browsers in ways those users couldn't work around. Both were reverted.
+The diagnostics button in item 14 is new, and exists so that kind of
+problem gets identified from evidence next time instead of guesswork.

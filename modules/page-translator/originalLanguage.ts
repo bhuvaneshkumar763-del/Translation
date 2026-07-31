@@ -35,26 +35,57 @@ function isTranslationServiceHost(hostname: string): boolean {
   return TRANSLATION_SERVICE_HOSTS.has(hostname) || hostname.endsWith('translate.goog');
 }
 
-async function waitUntilVisible(): Promise<void> {
+/**
+ * Resolves when the tab becomes visible — but never waits forever. The cap
+ * matters because `start()`'s result gates the auto-translate-on-load
+ * decision in content-main: a permanently-pending promise there means
+ * "always translate this site" silently never fires, with nothing logged.
+ * A browser that reports a non-'visible' state and then never emits
+ * `visibilitychange` (background/prerendered tabs, and WebKit-based engines
+ * where these semantics differ) would do exactly that. Falling through after
+ * the timeout is safe: the worst case is detecting language on a page that
+ * isn't on screen yet, which costs nothing.
+ */
+async function waitUntilVisible(timeoutMs = 5000): Promise<void> {
   if (document.visibilityState === 'visible') return;
   await new Promise<void>((resolve) => {
-    const handler = () => {
-      if (document.visibilityState === 'visible') {
-        document.removeEventListener('visibilitychange', handler);
-        resolve();
-      }
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('visibilitychange', handler);
+      clearTimeout(timer);
+      resolve();
     };
+    const handler = () => {
+      if (document.visibilityState === 'visible') finish();
+    };
+    const timer = setTimeout(finish, timeoutMs);
     document.addEventListener('visibilitychange', handler);
   });
 }
 
+/**
+ * Always resolves — 'und' on any failure, never throws. `i18n.detectLanguage`
+ * is feature-detected AND wrapped: it's absent or non-functional on some
+ * non-Chromium engines, and an exception escaping here used to reject
+ * `start()`, which killed the auto-translate decision downstream. The old
+ * pre-rewrite fork had the same resilience via `result = result || "und"`
+ * around its detection round trip — an unknown language must degrade to
+ * "translate anyway if the user asked for this site", not to silence.
+ */
 async function detectFromPageText(): Promise<string> {
-  const sample = (document.body?.innerText ?? '').slice(0, 4000).trim();
-  if (!sample || !browser.i18n.detectLanguage) return 'und';
-  const result = await browser.i18n.detectLanguage(sample);
-  const top = result?.languages?.[0]?.language;
-  if (!top) return 'und';
-  return fixTLanguageCode(top) ?? 'und';
+  try {
+    const sample = (document.body?.innerText ?? '').slice(0, 4000).trim();
+    if (!sample || typeof browser.i18n?.detectLanguage !== 'function') return 'und';
+    const result = await browser.i18n.detectLanguage(sample);
+    const top = result?.languages?.[0]?.language;
+    if (!top) return 'und';
+    return fixTLanguageCode(top) ?? 'und';
+  } catch (e) {
+    console.warn('[prism] language detection failed, continuing as "und"', e);
+    return 'und';
+  }
 }
 
 export function createOriginalLanguageTracker() {
@@ -67,16 +98,26 @@ export function createOriginalLanguageTracker() {
     listeners.forEach((cb) => cb(next));
   }
 
+  /**
+   * Never rejects. Callers gate real behavior (auto-translate on load) on
+   * this settling, so a rejection here is indistinguishable from "the user
+   * doesn't want this page translated" — see content-main.content.ts.
+   */
   async function start(): Promise<void> {
-    if (window.self === window.top) {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      await waitUntilVisible();
-      const detected = await detectFromPageText();
-      setLanguage(detected);
-      void sendMessage('reportMainFrameTabLanguage', { language: detected });
-    } else {
-      const detected = await sendMessage('getMainFrameTabLanguage', undefined).catch(() => 'und' as const);
-      setLanguage(detected);
+    try {
+      if (window.self === window.top) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await waitUntilVisible();
+        const detected = await detectFromPageText();
+        setLanguage(detected);
+        void sendMessage('reportMainFrameTabLanguage', { language: detected }).catch(() => {});
+      } else {
+        const detected = await sendMessage('getMainFrameTabLanguage', undefined).catch(() => 'und' as const);
+        setLanguage(detected);
+      }
+    } catch (e) {
+      console.warn('[prism] original-language tracking failed, continuing as "und"', e);
+      setLanguage('und');
     }
   }
 

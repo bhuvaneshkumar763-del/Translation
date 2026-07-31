@@ -116,21 +116,39 @@ export default defineContentScript({
       });
 
       // Auto-translate-on-load decision, once the original language resolves.
-      void originalLanguageReady.then(() => {
-        const decision = shouldAutoTranslateOnLoad({
-          originalLanguage: originalLanguage.get(),
-          hostname,
-          targetLanguage: twpConfig.get('targetLanguage') ?? 'en',
-          pageLanguageState: pageTranslator.getState(),
-          alwaysTranslateSites: twpConfig.get('alwaysTranslateSites'),
-          neverTranslateSites: twpConfig.get('neverTranslateSites'),
-          alwaysTranslateLangs: twpConfig.get('alwaysTranslateLangs'),
-          neverTranslateLangs: twpConfig.get('neverTranslateLangs'),
-          hasSavedSourceLangForHost: !!twpConfig.get('fpSourceLangByHost')[hostname],
-          isIncognito: browser.extension.inIncognitoContext,
+      //
+      // This is the *only* thing that makes "always translate this site"
+      // work on a later visit, so it must not be possible for it to be
+      // skipped silently. `start()` is written to always resolve (see
+      // originalLanguage.ts), every `browser.*` touch below is guarded, and
+      // the whole chain still gets a catch — belt and braces, because the
+      // failure mode here is invisible: no error surfaces to the user, the
+      // page just quietly doesn't translate while the setting sits there
+      // looking enabled. That exact combination was reported twice.
+      void originalLanguageReady
+        .then(() => {
+          const decision = shouldAutoTranslateOnLoad({
+            originalLanguage: originalLanguage.get(),
+            hostname,
+            targetLanguage: twpConfig.get('targetLanguage') ?? 'en',
+            pageLanguageState: pageTranslator.getState(),
+            alwaysTranslateSites: twpConfig.get('alwaysTranslateSites'),
+            neverTranslateSites: twpConfig.get('neverTranslateSites'),
+            alwaysTranslateLangs: twpConfig.get('alwaysTranslateLangs'),
+            neverTranslateLangs: twpConfig.get('neverTranslateLangs'),
+            hasSavedSourceLangForHost: !!twpConfig.get('fpSourceLangByHost')[hostname],
+            // Optional-chained: `browser.extension` is a legacy namespace and
+            // isn't part of the documented content-script API surface, so it
+            // can be absent outside Chrome. Treat "can't tell" as "not
+            // incognito" — matching the pre-rewrite fork, which only ever
+            // used this to suppress auto-translate, never to enable it.
+            isIncognito: browser.extension?.inIncognitoContext ?? false,
+          });
+          if (decision) void pageTranslator.translatePage(twpConfig.get('targetLanguage') ?? 'en');
+        })
+        .catch((e) => {
+          console.error('[prism] auto-translate-on-load check failed', e);
         });
-        if (decision) void pageTranslator.translatePage(twpConfig.get('targetLanguage') ?? 'en');
-      });
 
       await setupFloatingBubble(ctx, pageTranslator);
       await mountPersistentOverlay(ctx, 'twp-mobile-popup', (uiContainer) =>

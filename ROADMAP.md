@@ -91,14 +91,22 @@ newer skeleton.
    API-based alternatives, but the specific asks here (Google Cloud
    Translation, Azure Translator, DeepL's real API as first-class options)
    aren't done.
-9. ✅ **DONE (Session 4).** Cross-device settings sync via
-   `chrome.storage.sync` — `SYNCED_CONFIG_KEYS` in `modules/config/schema.ts`
-   is a deliberate allowlist (language prefs, translate lists, service
-   choice, behavior toggles), not everything: API keys, unbounded per-host
-   maps, and device-local facts stay `local:` only. See `CLAUDE.md`'s
-   Session 4 section for the full rationale and quota-safety design. A real
-   account/sync backend beyond the browser's own sync remains a further-out
-   idea, not started.
+9. ✗ **TRIED (Session 4), REMOVED — do not retry via `chrome.storage.sync`.**
+   Cross-device settings sync shipped as a `SYNCED_CONFIG_KEYS` allowlist
+   routing language prefs, translate lists, and service choice to
+   `chrome.storage.sync`. It was the **second** cause of the user's
+   "always translate does nothing" report: on WebKit-based engines that
+   area can be present-but-non-functional, or readable in extension pages
+   and empty in content scripts, so the options page showed a site in the
+   always-translate list while the page translator read the same key and
+   got nothing — no error anywhere. Deleted entirely at the user's
+   explicit choice over a dual-write alternative; export/import in
+   Settings → Backup is the supported way to move settings between
+   devices. See `CLAUDE.md`'s "storage.sync removed" section, and the
+   warning comment on `storageKeyFor()` in `modules/config/store.ts`,
+   before revisiting this. If it is ever revisited, the design constraint
+   is that **`chrome.storage.local` must remain the value every context
+   actually reads**, with sync only ever mirroring on top of it.
 10. ✅ **DONE (Session 2).** Provider capability registry —
     `modules/providers/descriptors.ts`. `registry.ts`'s dispatch/gating now
     derives from it; `schema.ts`'s three service enums are still

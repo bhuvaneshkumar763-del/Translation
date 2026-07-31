@@ -59,6 +59,11 @@ const candidateEntrypoints = [
       if (tabs !== 6) return `expected 6 tabs (role="tab"), found ${tabs}`;
       const panels = await page.locator('[role="tabpanel"]').count();
       if (panels !== 6) return `expected 6 tabpanels, found ${panels}`;
+      // The diagnostics panel is the supported way to debug a browser we
+      // can't reach from here (see CLAUDE.md's storage/permissions history) —
+      // it silently disappearing would remove that lifeline.
+      const hasDiagnostics = (await page.locator('button', { hasText: 'Run diagnostics' }).count()) > 0;
+      if (!hasDiagnostics) return 'expected the Advanced tab\'s "Run diagnostics" button to be present';
     },
   },
   { file: 'improve-translation.html' },

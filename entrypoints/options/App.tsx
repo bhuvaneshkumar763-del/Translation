@@ -349,6 +349,99 @@ function App() {
     }
   }
 
+  /**
+   * On-device diagnostics. Exists because two separate "it doesn't work"
+   * reports in a row came from a browser that can't be tested from the dev
+   * machine (Orion/iOS), and both were diagnosed by reasoning from symptoms
+   * rather than evidence — the second cause (settings written to
+   * chrome.storage.sync being unreadable where it mattered) would have been
+   * obvious in one glance at a panel like this. Everything here is probed at
+   * runtime in *this* browser rather than assumed, and deliberately includes
+   * the raw contents of both storage areas so a split brain between them is
+   * visible rather than inferred.
+   */
+  const [diagnostics, setDiagnostics] = createSignal<string | null>(null);
+  const [diagnosticsBusy, setDiagnosticsBusy] = createSignal(false);
+
+  async function probeStorageArea(area: 'local' | 'sync'): Promise<string> {
+    const store = browser.storage?.[area];
+    if (!store) return 'not available in this browser';
+    const probeKey = '__prismStorageProbe';
+    try {
+      await store.set({ [probeKey]: 'ok' });
+      const read = await store.get(probeKey);
+      await store.remove(probeKey);
+      return read?.[probeKey] === 'ok' ? 'read/write OK' : 'WRITE SUCCEEDED BUT READ CAME BACK EMPTY';
+    } catch (e) {
+      return `FAILED — ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  async function runDiagnostics(): Promise<void> {
+    setDiagnosticsBusy(true);
+    const lines: string[] = [];
+    const manifest = browser.runtime.getManifest();
+    lines.push(`Prism ${manifest.version_name ?? manifest.version}`);
+    lines.push(`User agent: ${navigator.userAgent}`);
+    lines.push('');
+
+    lines.push('— Storage —');
+    lines.push(`local: ${await probeStorageArea('local')}`);
+    lines.push(`sync:  ${await probeStorageArea('sync')}   (Prism no longer stores settings here)`);
+
+    const listKeys = ['alwaysTranslateSites', 'neverTranslateSites', 'alwaysTranslateLangs'] as const;
+    const rawLocal = await browser.storage.local.get(null).catch(() => ({}) as Record<string, unknown>);
+    const rawSync = await browser.storage.sync?.get(null).catch(() => ({}) as Record<string, unknown>);
+    lines.push('');
+    lines.push('— Translate lists (in use vs. each raw storage area) —');
+    for (const key of listKeys) {
+      lines.push(`${key}:`);
+      lines.push(`  in use: ${JSON.stringify(twpConfig.get(key))}`);
+      lines.push(`  local:  ${JSON.stringify(rawLocal[key] ?? null)}`);
+      lines.push(`  sync:   ${JSON.stringify(rawSync?.[key] ?? null)}`);
+    }
+
+    lines.push('');
+    lines.push('— Effective settings —');
+    lines.push(`page service: ${twpConfig.get('pageTranslatorService')}`);
+    lines.push(`target language: ${String(twpConfig.get('targetLanguage'))}`);
+    lines.push(`floating bubble: ${twpConfig.get('fpShowFloatingBubble')}`);
+    lines.push(
+      `custom services configured: ${
+        twpConfig
+          .get('customServices')
+          .map((s) => s.name)
+          .join(', ') || 'none'
+      }`,
+    );
+
+    lines.push('');
+    lines.push('— Browser capabilities —');
+    lines.push(`i18n.detectLanguage: ${typeof browser.i18n?.detectLanguage === 'function' ? 'available' : 'MISSING'}`);
+    lines.push(
+      `scripting.executeScript: ${typeof browser.scripting?.executeScript === 'function' ? 'available' : 'MISSING'}`,
+    );
+    lines.push(
+      `scripting.registerContentScripts: ${typeof browser.scripting?.registerContentScripts === 'function' ? 'available' : 'MISSING'}   (not required)`,
+    );
+    lines.push(`extension.inIncognitoContext: ${browser.extension?.inIncognitoContext ?? 'unavailable'}`);
+    const hostPerms = (manifest as { host_permissions?: string[] }).host_permissions ?? [];
+    lines.push(`host_permissions: ${JSON.stringify(hostPerms)}`);
+    try {
+      lines.push(`all-sites access granted: ${await browser.permissions.contains({ origins: ['<all_urls>'] })}`);
+    } catch {
+      lines.push('all-sites access granted: could not check');
+    }
+
+    setDiagnostics(lines.join('\n'));
+    setDiagnosticsBusy(false);
+  }
+
+  function copyDiagnostics(): void {
+    const text = diagnostics();
+    if (text) void navigator.clipboard.writeText(text).catch(() => {});
+  }
+
   const [cacheSize, setCacheSize] = createSignal<string | null>(null);
   function refreshCacheSize(): void {
     setCacheSize('Calculating…');
@@ -413,10 +506,7 @@ function App() {
 
           <Section title="Backup">
             <p class="hint">
-              Most preferences (languages, always/never-translate lists, and behavior toggles) already follow you across
-              devices automatically via your browser's own sync, when it's turned on. API keys and custom services stay
-              local to each device. Use export/import below for a full manual copy, or to move settings to a device
-              without sync enabled.
+              Settings are stored on this device only. Use export/import below to copy them to another device.
             </p>
             <div class="row">
               <button on:click={exportConfig}>Export settings</button>
@@ -833,6 +923,24 @@ function App() {
                 Clear cache
               </button>
             </div>
+          </Section>
+
+          <Section title="Diagnostics">
+            <p class="hint">
+              Checks what actually works in this browser right now — storage, permissions, and the translation settings
+              as the page translator itself sees them. If something isn't working, run this and share the result.
+            </p>
+            <div class="row">
+              <button on:click={() => void runDiagnostics()} disabled={diagnosticsBusy()}>
+                {diagnosticsBusy() ? 'Running…' : 'Run diagnostics'}
+              </button>
+              <Show when={diagnostics()}>
+                <button on:click={copyDiagnostics}>Copy</button>
+              </Show>
+            </div>
+            <Show when={diagnostics()}>
+              <pre class="diagnosticsOutput">{diagnostics()}</pre>
+            </Show>
           </Section>
         </TabPanel>
       </div>

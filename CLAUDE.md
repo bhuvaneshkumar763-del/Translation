@@ -277,7 +277,10 @@ complete.** What landed:
   *without* the permission genuinely fail (Chrome enforces this for real,
   confirmed, not just declaratively) — the negative case is as solid as
   the positive one.
-- **Cross-device settings sync**, `modules/config/schema.ts` +
+- **Cross-device settings sync** — ⚠ **entirely removed later**; it turned
+  out to be the second cause of the "always translate does nothing" report,
+  see "storage.sync removed" below. Kept here as the historical record of
+  what was built and why. `modules/config/schema.ts` +
   `modules/config/store.ts`: a new `SYNCED_CONFIG_KEYS` allowlist (not
   "everything except an exclusion list" — `chrome.storage.sync`'s hard caps,
   100KB total / 8KB per item / 512 items, make a silent overflow a real
@@ -481,23 +484,83 @@ fork exactly. What changed:
   injection only runs on navigation, not retroactively into already-open
   tabs).
 
-**Verification found a real, separate, worth-remembering gotcha along the
-way**: the first few round-trip checks after reverting showed the LLM
-provider correctly registering (`customServices` — local-only, unaffected)
-but the translation itself silently not firing, with no error anywhere.
-Root cause: `pageTranslatorService`, `targetLanguage`, and
-`alwaysTranslateSites` are all in `SYNCED_CONFIG_KEYS`
-(`modules/config/schema.ts`, from Session 4's cross-device-sync work) —
-they live in `chrome.storage.sync`, not `chrome.storage.local`. A
-diagnostic script writing test config via `chrome.storage.local.set(...)`
-alone silently never reached those keys at all; `twpConfig` correctly kept
-reading the untouched default. Not a code bug — a reminder for **any**
-future test/debug script poking at this extension's storage directly:
-check `SYNCED_CONFIG_KEYS` before assuming `chrome.storage.local` is where
-a given config key lives. Once fixed, verified cleanly on a fresh profile
-with zero permission steps: exactly one LLM request, the page correctly
-translated, the floating bubble present — matching the old fork's
-behavior exactly, with real mock-server proof (not just structural checks).
+**Verification hit a "gotcha" that turned out to be the second bug itself**
+— see the next section. Once accounted for, the permission revert verified
+cleanly on a fresh profile with zero permission steps: exactly one LLM
+request, the page correctly translated, the floating bubble present —
+matching the old fork's behavior, with real mock-server proof.
+
+## storage.sync removed — the second, independent cause of "always translate does nothing"
+
+Reverting the permission model **did not fix the user's report.** They came
+back with the same symptom on Orion: the site is visibly listed under
+"Always translate these sites", but visiting it never translates. A
+side-by-side reread of their working pre-rewrite fork against this codebase
+found a completely separate cause that had been hiding behind the first one.
+
+**What the old fork does:** `lib/config.js` uses `chrome.storage.local`
+exclusively — `grep -rn "storage.sync"` over the entire old tree returns
+nothing. It also never lets language detection gate the always-translate
+check: detection failures collapse to `result = result || "und"` and the
+"is this an always-translate site?" branch runs regardless.
+
+**What this codebase did:** Session 4 introduced `SYNCED_CONFIG_KEYS`,
+routing `alwaysTranslateSites`, `pageTranslatorService`, `targetLanguage`
+and ~40 other keys to `chrome.storage.sync`, chosen per key by
+`storageKeyFor()` and feature-detected with `!!browser.storage.sync`. That
+detection proves the API *exists*, not that it *works*. On WebKit-based
+engines it can be present-but-non-functional, or work in extension pages
+while returning nothing in content scripts — producing a split brain with
+no error anywhere:
+
+- options page → writes/reads `sync:alwaysTranslateSites` → **site shows in
+  the list** ✓
+- content-main → reads `sync:alwaysTranslateSites` → **empty array** →
+  never auto-translates ✗
+
+Which is precisely, word for word, the reported symptom. It also explains
+why it always worked on Chrome (sync works everywhere there) and why the
+permission revert changed nothing.
+
+Offered the choice between a dual-write scheme that preserved cross-device
+sync and simply deleting sync, **the user chose to delete it** ("remove the
+cross sync feature entirely, it's just unnecessary"). What changed:
+
+- `modules/config/schema.ts`: `SYNCED_CONFIG_KEYS` **deleted**.
+- `modules/config/store.ts`: `storageKeyFor()` returns `local:` for every
+  key; `syncStorageAvailable` and `migrateLocalSettingsToSyncIfNeeded()`
+  are gone. See that function's header comment — it carries a **do not
+  reintroduce `chrome.storage.sync`** warning with this whole account, so
+  the next person doesn't rediscover it the same way.
+- New `reclaimSettingsStrandedInSyncIfNeeded()`: a one-time migration
+  copying anything left in sync storage by the beta builds back into
+  local, **only where local has no value** (local wins, since that's what
+  every context actually reads). Without it, dropping sync would look to
+  beta users like their settings reset to defaults — the second
+  "my settings vanished" event in a row. Verified end to end.
+- Settings → Backup no longer claims settings follow you across devices;
+  export/import is the supported way to move them.
+
+**Hardened at the same time** (`modules/page-translator/originalLanguage.ts`,
+`entrypoints/content-main.content.ts`), because the auto-translate path had
+no defense against exactly this class of silent failure: `start()` now
+always resolves (never rejects), `waitUntilVisible()` can't wait forever
+(5s cap — a permanently-pending promise there silently disables
+auto-translate), `i18n.detectLanguage` is both feature-detected and
+try/caught, `browser.extension?.inIncognitoContext` is optional-chained
+(legacy namespace, not guaranteed outside Chrome), and the decision chain
+has a real `.catch()`. This mirrors the old fork's `result || "und"`
+resilience: an unknown language must degrade to "translate anyway if the
+user asked for this site", never to silence.
+
+**And a diagnostics panel** (Settings → Advanced → Diagnostics) now probes
+what actually works *in the browser it's running in*: read/write round
+trips against both storage areas, the raw contents of each for the
+translate lists (so a split brain is visible rather than inferred),
+capability checks for `i18n.detectLanguage`/`scripting.*`, and the
+effective config. Two consecutive misdiagnoses of an untestable browser is
+the argument for it — one glance at this output would have caught the
+storage split immediately.
 
 ## Known gaps / next things to look at
 - **Release notes aren't wired into the new options page.** `showReleaseNotes`
@@ -541,10 +604,10 @@ modules/              framework-agnostic domain logic, imported by entrypoints
   config/                zod schema + chrome.storage.local/sync-backed store
                          (schema.ts mirrors the old defaultConfig 1:1 — same
                          ~45 keys, plus a versioning/migration system added
-                         in Gen 2 Session 2 — see CONFIG_SCHEMA_VERSION —
-                         and a SYNCED_CONFIG_KEYS allowlist from Session 4
-                         routing some keys to chrome.storage.sync instead of
-                         .local, see that constant's own header comment)
+                         in Gen 2 Session 2 — see CONFIG_SCHEMA_VERSION.
+                         chrome.storage.local ONLY — see store.ts's
+                         storageKeyFor header comment before even thinking
+                         about chrome.storage.sync again)
   messaging/             protocol.ts (discriminated-union message contracts,
                          via @webext-core/messaging) + tabTarget.ts (shared
                          mainFrameTarget/pageActionTarget helpers — see below)

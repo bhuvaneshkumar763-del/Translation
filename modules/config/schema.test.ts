@@ -2,12 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   applyConfigMigrations,
   CONFIG_SCHEMA_VERSION,
-  type ConfigKey,
   configMigrations,
   configSchema,
   defaultConfig,
   legacyStorageKeyByConfigKey,
-  SYNCED_CONFIG_KEYS,
 } from './schema';
 
 describe('configSchema', () => {
@@ -52,45 +50,6 @@ describe('legacyStorageKeyByConfigKey', () => {
   it('only maps keys that actually exist on the config schema', () => {
     for (const configKey of Object.keys(legacyStorageKeyByConfigKey)) {
       expect(defaultConfig).toHaveProperty(configKey);
-    }
-  });
-});
-
-describe('SYNCED_CONFIG_KEYS', () => {
-  it('only names keys that actually exist on the config schema', () => {
-    for (const key of SYNCED_CONFIG_KEYS) {
-      expect(defaultConfig).toHaveProperty(key);
-    }
-  });
-
-  it('excludes secrets, device-local facts, and unbounded per-host maps', () => {
-    const mustStayLocal: ConfigKey[] = [
-      'customServices', // contains API keys
-      'hotkeys', // overwritten from this device's own chrome.commands.getAll() every load
-      'originalUserAgent', // this device's actual UA string
-      'installDateTime', // fact about this install
-      'fpSourceLangByHost', // unbounded per-host map, sync quota risk
-      'fpBubbleByHost', // unbounded per-host map, sync quota risk
-      'customDictionary', // unbounded per-term map, sync quota risk
-      'fpBubblePos', // screen-geometry-dependent
-    ];
-    for (const key of mustStayLocal) {
-      expect(SYNCED_CONFIG_KEYS.has(key)).toBe(false);
-    }
-  });
-
-  it('includes the core cross-device preferences (languages, translate lists, service choice)', () => {
-    const shouldSync: ConfigKey[] = [
-      'targetLanguage',
-      'targetLanguages',
-      'pageTranslatorService',
-      'alwaysTranslateSites',
-      'neverTranslateSites',
-      'alwaysTranslateLangs',
-      'neverTranslateLangs',
-    ];
-    for (const key of shouldSync) {
-      expect(SYNCED_CONFIG_KEYS.has(key)).toBe(true);
     }
   });
 });

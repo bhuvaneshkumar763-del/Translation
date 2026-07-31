@@ -7,6 +7,7 @@
   "changesets": [
     "install-time-onboarding",
     "options-popup-reactivity-fix",
+    "remove-storage-sync",
     "revert-permission-model"
   ]
 }

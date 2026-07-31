@@ -223,3 +223,19 @@ button:hover {
   font-size: var(--prism-text-xs);
   padding: 4px 8px;
 }
+
+.diagnosticsOutput {
+  margin: var(--prism-space-3) 0 0;
+  padding: var(--prism-space-3);
+  border: 1px solid var(--prism-border);
+  border-radius: var(--prism-radius-sm);
+  background: var(--prism-bg-subtle);
+  color: var(--prism-text);
+  font-family: var(--prism-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--prism-text-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 340px;
+  overflow: auto;
+}
