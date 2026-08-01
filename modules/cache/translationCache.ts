@@ -370,7 +370,9 @@ class CacheListManager {
       });
       this.list.clear();
       const dbnames = await this.getAllDBNames();
-      dbnames.forEach((dbName) => promises.push(deleteDatabase(dbName)));
+      dbnames.forEach((dbName) => {
+        promises.push(deleteDatabase(dbName));
+      });
       await Promise.all(promises);
 
       // Also clear the persisted cache_list records themselves — otherwise

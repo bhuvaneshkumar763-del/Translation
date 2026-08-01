@@ -165,7 +165,7 @@ function cbTransformResponse(result: string, dontSortResults: boolean): string[]
   if (resultArray.length > 0) {
     indexes = resultArray
       .map((value) => parseInt(value.match(/[0-9]+(?=>)/g)?.[0] ?? '', 10))
-      .filter((value) => !isNaN(value));
+      .filter((value) => !Number.isNaN(value));
     resultArray = resultArray.map((value) => value.slice(value.indexOf('>') + 1));
   } else {
     // No <a i={number}> in the response at all.

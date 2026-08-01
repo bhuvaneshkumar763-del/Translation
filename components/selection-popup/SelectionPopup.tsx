@@ -68,6 +68,13 @@ export function SelectionPopup(props: SelectionPopupProps) {
   );
   const [listening, setListening] = createSignal<'original' | 'translated' | null>(null);
   const [isEditable, setIsEditable] = createSignal(false);
+  // twpConfig.get() read directly in JSX is NOT reactive (a plain mutable
+  // object property, not a signal) — same fix as MobilePopup.tsx and the
+  // other components that hit this bug class. targetLanguageOptions/
+  // serviceOptions are read from <For> below, so they need real signals.
+  const [targetLangs, setTargetLangs] = createSignal(twpConfig.get('targetLanguages'));
+  const [enabledServices, setEnabledServices] = createSignal(twpConfig.get('enabledServices'));
+  const [customServices, setCustomServices] = createSignal(twpConfig.get('customServices'));
 
   let selectionInfo: SelectionInfo | null = null;
   let generation = 0;
@@ -75,10 +82,10 @@ export function SelectionPopup(props: SelectionPopupProps) {
 
   const platform = getPlatformInfo();
 
-  const targetLanguageOptions = () => twpConfig.get('targetLanguages').slice(0, 3);
+  const targetLanguageOptions = () => targetLangs().slice(0, 3);
   const serviceOptions = () => {
-    const enabled = twpConfig.get('enabledServices');
-    const hasLibre = twpConfig.get('customServices').some((cs) => cs.name === 'libre');
+    const enabled = enabledServices();
+    const hasLibre = customServices().some((cs) => cs.name === 'libre');
     return PAGE_TEXT_SERVICES.filter((s) => (s === 'libre' ? hasLibre : enabled.includes(s)));
   };
 
@@ -174,7 +181,7 @@ export function SelectionPopup(props: SelectionPopupProps) {
   }
 
   function onCopy(): void {
-    void navigator.clipboard.writeText(translatedText());
+    void navigator.clipboard.writeText(translatedText()).catch(() => {});
   }
 
   function onReplace(): void {
@@ -250,7 +257,7 @@ export function SelectionPopup(props: SelectionPopupProps) {
   solidOnMount(() => {
     let showButtonTimer: ReturnType<typeof setTimeout> | null = null;
     let lastCtrlPress: number | null = null;
-    let isTouchSelection = false;
+    let _isTouchSelection = false;
 
     function onMouseup(e: MouseEvent): void {
       if (e.button !== 0) return;
@@ -265,7 +272,7 @@ export function SelectionPopup(props: SelectionPopupProps) {
     }
 
     function onTouchend(e: TouchEvent): void {
-      isTouchSelection = true;
+      _isTouchSelection = true;
       if (!shouldShowButton()) return;
       if (showButtonTimer) clearTimeout(showButtonTimer);
       const touch = e.changedTouches[0];
@@ -308,6 +315,12 @@ export function SelectionPopup(props: SelectionPopupProps) {
     const unsubOriginalLang = props.onOriginalLanguageChange(() => {
       // Re-evaluate nothing proactively — gating is read live on next
       // interaction, matching how config-driven gating already works.
+    });
+
+    const unsubConfig = twpConfig.onChanged((name, value) => {
+      if (name === 'targetLanguages') setTargetLangs(value as string[]);
+      else if (name === 'enabledServices') setEnabledServices(value as string[]);
+      else if (name === 'customServices') setCustomServices(value as Config['customServices']);
     });
 
     let windowIsInFocus = true;
@@ -391,6 +404,7 @@ export function SelectionPopup(props: SelectionPopupProps) {
       window.removeEventListener('focus', onWindowFocus);
       window.removeEventListener('blur', onWindowBlur);
       unsubOriginalLang();
+      unsubConfig();
       offAnotherFrameFocus();
       offTranslateSelected();
       offHotTranslateSelected();
@@ -450,7 +464,7 @@ export function SelectionPopup(props: SelectionPopupProps) {
         .textbox {
           padding: 12px; font-size: 14px; line-height: 1.4;
           max-height: 200px; overflow: auto; white-space: pre-wrap;
-          border-top: 1px solid #e8edf3;
+          border-top: 1px solid #e2e8f0;
           position: relative;
         }
         #origText { outline: none; user-select: text; }

@@ -6,11 +6,13 @@ import { z } from 'zod';
  * that file's `toObjectOrArrayIfTypeIsMapOrSet`/`fixObjectType`), so an
  * existing install's chrome.storage.local data loads without migration.
  *
- * Three keys used elsewhere in the old codebase via twpConfig.get/set but
- * absent from its own defaultConfig ("phantom" keys — see the cross-module
- * contract catalog) are intentionally folded in here as first-class fields
- * instead of being reproduced as an omission: originalUserAgent,
- * installDateTime, deeplConfirmed (was `deepl_confirmed`).
+ * A couple of keys used elsewhere in the old codebase via twpConfig.get/set
+ * but absent from its own defaultConfig ("phantom" keys — see the
+ * cross-module contract catalog) are intentionally folded in here as
+ * first-class fields instead of being reproduced as an omission:
+ * originalUserAgent, deeplConfirmed (was `deepl_confirmed`).
+ * (A third phantom key, `installDateTime`, was deleted — see
+ * `configMigrations` toVersion 2 — it was never read anywhere.)
  *
  * `authorizationToOpenOptions` is NOT part of this schema — the old code
  * stores it via raw chrome.storage.local, not through twpConfig, and the new
@@ -68,36 +70,26 @@ export const configSchema = z.object({
   customDictionary: z.record(z.string(), z.string()), // Map<string,string> in memory
   showTranslatePageContextMenu: yesNo,
   showTranslateSelectedContextMenu: yesNo,
-  showButtonInTheAddressBar: yesNo,
   showOriginalTextWhenHovering: yesNo,
   showTranslateSelectedButton: yesNo,
   whenShowMobilePopup: z.enum(['when-necessary', 'only-when-i-touch', 'always-show']),
   darkMode: z.enum(['auto', 'yes', 'no']),
-  popupBlueWhenSiteIsTranslated: yesNo,
-  popupPanelSection: z.number(),
-  showReleaseNotes: yesNo,
   dontShowIfIsNotValidText: yesNo,
   dontShowIfPageLangIsTargetLang: yesNo,
   dontShowIfPageLangIsUnknown: yesNo,
   dontShowIfSelectedTextIsTargetLang: yesNo,
   dontShowIfSelectedTextIsUnknown: yesNo,
-  hotkeys: z.record(z.string(), z.string()), // populated from chrome.commands.getAll()
   expandPanelTranslateSelectedText: yesNo,
-  translateTagPre: yesNo, // was "translateTag_pre"
   enableIframePageTranslation: yesNo,
   dontSortResults: yesNo,
-  translateDynamicallyCreatedContent: yesNo,
-  autoTranslateWhenClickingALink: yesNo,
   translateSelectedWhenPressTwice: yesNo,
   translateTextOverMouseWhenPressTwice: yesNo,
   translateClickingOnce: yesNo,
   enableDiskCache: yesNo,
-  useAlternativeService: yesNo,
   customServices: z.array(customServiceSchema),
   showMobilePopupOnDesktop: yesNo,
   popupMobileKeepOnScren: yesNo, // kept misspelled to match the existing storage key
   popupMobilePosition: z.enum(['top', 'bottom']),
-  addPaddingToPage: yesNo,
   proxyServers: z.object({
     google: z
       .object({
@@ -116,7 +108,6 @@ export const configSchema = z.object({
   // "Phantom" keys: read/written via twpConfig.get/set in the old code, but
   // absent from its own defaultConfig object (see contract catalog).
   originalUserAgent: z.string(),
-  installDateTime: z.number(),
   deeplConfirmed: yesNo, // was "deepl_confirmed"
 });
 
@@ -130,7 +121,6 @@ export type ConfigKey = keyof Config;
  * step for users upgrading in place.
  */
 export const legacyStorageKeyByConfigKey: Partial<Record<ConfigKey, string>> = {
-  translateTagPre: 'translateTag_pre',
   deeplConfirmed: 'deepl_confirmed',
 };
 
@@ -154,43 +144,32 @@ export const defaultConfig: Config = {
   customDictionary: {},
   showTranslatePageContextMenu: 'yes',
   showTranslateSelectedContextMenu: 'yes',
-  showButtonInTheAddressBar: 'yes',
   showOriginalTextWhenHovering: 'no',
   showTranslateSelectedButton: 'yes',
   whenShowMobilePopup: 'when-necessary',
   darkMode: 'auto',
-  popupBlueWhenSiteIsTranslated: 'yes',
-  popupPanelSection: 1,
-  showReleaseNotes: 'yes',
   dontShowIfIsNotValidText: 'yes',
   dontShowIfPageLangIsTargetLang: 'no',
   dontShowIfPageLangIsUnknown: 'no',
   dontShowIfSelectedTextIsTargetLang: 'no',
   dontShowIfSelectedTextIsUnknown: 'no',
-  hotkeys: {},
   expandPanelTranslateSelectedText: 'no',
-  translateTagPre: 'yes',
   enableIframePageTranslation: 'yes',
   dontSortResults: 'no',
-  translateDynamicallyCreatedContent: 'yes',
-  autoTranslateWhenClickingALink: 'no',
   translateSelectedWhenPressTwice: 'no',
   translateTextOverMouseWhenPressTwice: 'no',
   translateClickingOnce: 'no',
   enableDiskCache: 'no',
-  useAlternativeService: 'yes',
   customServices: [],
   showMobilePopupOnDesktop: 'no',
   popupMobileKeepOnScren: 'no',
   popupMobilePosition: 'top',
-  addPaddingToPage: 'no',
   proxyServers: {},
   fpSourceLangByHost: {},
   fpShowFloatingBubble: 'yes',
   fpBubblePos: null,
   fpBubbleByHost: {},
   originalUserAgent: '',
-  installDateTime: 0,
   deeplConfirmed: 'no',
 };
 
@@ -202,12 +181,11 @@ export const defaultConfig: Config = {
  * item's `fallback` and `legacyStorageKeyByConfigKey`. This exists for the
  * cases that don't: a stored value whose *shape* changed (not just renamed)
  * or an enum value that was removed/renamed out from under existing
- * installs. Nothing needs migrating yet — this session's own schema changes
- * (new `llm` customServiceSchema variant, new enum entries) are purely
- * additive — so `configMigrations` ships empty. Add to it, and bump
- * `CONFIG_SCHEMA_VERSION`, the next time a change actually needs one.
+ * installs. Session 2 itself shipped with `configMigrations` empty (its own
+ * schema changes were purely additive) — toVersion 2 below is the first
+ * real one, exercising this system for the first time.
  */
-export const CONFIG_SCHEMA_VERSION = 1;
+export const CONFIG_SCHEMA_VERSION = 2;
 
 export interface ConfigMigration {
   /** The schema version this migration upgrades stored data TO. */
@@ -216,7 +194,40 @@ export interface ConfigMigration {
   migrate(rawEntries: Record<string, unknown>): Record<string, unknown>;
 }
 
-export const configMigrations: ConfigMigration[] = [];
+/**
+ * Raw storage keys for the 11 config keys deleted in this migration — all
+ * confirmed dead (never read anywhere outside the config layer itself)
+ * during a deep audit. Listed as raw storage keys, not `ConfigKey`s, since
+ * the whole point is these no longer exist in `Config`/`configSchema` at
+ * all — `hotkeys` is the one with real (if pointless) startup work behind
+ * it (see store.ts's now-removed hotkeys-sync block); the rest are inert
+ * settings nothing ever read back.
+ */
+const DEAD_KEYS_V2 = [
+  'showButtonInTheAddressBar',
+  'popupBlueWhenSiteIsTranslated',
+  'showReleaseNotes',
+  'hotkeys',
+  'translateTag_pre', // the OLD storage key for translateTagPre (see legacyStorageKeyByConfigKey's former entry) — both the renamed AND legacy spellings could exist on disk
+  'translateTagPre',
+  'translateDynamicallyCreatedContent',
+  'autoTranslateWhenClickingALink',
+  'useAlternativeService',
+  'addPaddingToPage',
+  'installDateTime',
+  'popupPanelSection',
+];
+
+export const configMigrations: ConfigMigration[] = [
+  {
+    toVersion: 2,
+    migrate(rawEntries) {
+      const next = { ...rawEntries };
+      for (const key of DEAD_KEYS_V2) delete next[key];
+      return next;
+    },
+  },
+];
 
 /** Applies every migration whose `toVersion` is above `storedVersion`, in ascending order. Pure — no storage I/O — so it's directly unit-testable; store.ts is responsible for reading/writing the actual chrome.storage.local entries and the version marker around this call. */
 export function applyConfigMigrations(

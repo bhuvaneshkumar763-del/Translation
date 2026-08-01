@@ -89,7 +89,7 @@ export function createDeeplFreeApiService(apiKey: string): Service {
           },
         ],
         cbTransformResponse: (result) => [result],
-        cbGetRequestBody: (sourceLanguage, targetLanguage, requests) => {
+        cbGetRequestBody: (_sourceLanguage, targetLanguage, requests) => {
           const params = new URLSearchParams();
           params.append('text', requests[0]?.originalText ?? '');
           if (targetLanguage === 'pt') targetLanguage = 'pt-BR';

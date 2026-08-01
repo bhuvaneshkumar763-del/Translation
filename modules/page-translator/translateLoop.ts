@@ -4,6 +4,7 @@ import { createDedupeTracker } from './dedupe';
 import { groupNodesForBatching } from './grouping';
 import { createMutationWatcher } from './mutationWatcher';
 import { createResweepScheduler } from './resweep';
+import { createTitleTranslator } from './titleTranslator';
 
 /**
  * The page-translation engine: collect text nodes, batch-translate them,
@@ -167,6 +168,12 @@ export function createPageTranslator(options: PageTranslatorOptions) {
     },
   });
 
+  const titleTranslator = createTitleTranslator({
+    getService: options.getService,
+    getSourceLanguage: options.getSourceLanguage,
+    isPageVisible: () => document.visibilityState === 'visible',
+  });
+
   const resweep = createResweepScheduler({
     isTranslated: () => pageLanguageState === 'translated',
     isPageVisible: () => document.visibilityState === 'visible',
@@ -175,12 +182,19 @@ export function createPageTranslator(options: PageTranslatorOptions) {
       if (added > 0) wakeRoutine();
       return added > 0;
     },
+    onHrefChange() {
+      // SPA navigation / chapter switch — re-check the title the same way a
+      // site directly rewriting document.title would trigger, reusing this
+      // scheduler's existing href-watching instead of building a second one.
+      if (pageLanguageState === 'translated') titleTranslator.catchUp();
+    },
   });
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && pageLanguageState === 'translated') {
       mutationWatcher.enable(500, () => resweep.bump());
       resweep.bump();
+      titleTranslator.catchUp();
     } else if (document.visibilityState !== 'visible') {
       mutationWatcher.disable();
     }
@@ -188,7 +202,9 @@ export function createPageTranslator(options: PageTranslatorOptions) {
 
   function setState(next: PageLanguageState): void {
     pageLanguageState = next;
-    stateListeners.forEach((cb) => cb(next));
+    stateListeners.forEach((cb) => {
+      cb(next);
+    });
   }
 
   async function translatePage(targetLanguage: string): Promise<void> {
@@ -212,6 +228,7 @@ export function createPageTranslator(options: PageTranslatorOptions) {
     mutationWatcher.enable(500, () => resweep.bump());
     resweep.start();
     wakeRoutine();
+    void titleTranslator.start(targetLanguage);
   }
 
   function restorePage(): void {
@@ -227,6 +244,7 @@ export function createPageTranslator(options: PageTranslatorOptions) {
     translationRoutineHandle = null;
     mutationWatcher.disable();
     resweep.stop();
+    titleTranslator.restore();
     setState('original');
   }
 

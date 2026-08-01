@@ -44,6 +44,12 @@ function App() {
   );
   const [listening, setListening] = createSignal<'original' | 'translated' | null>(null);
   const [copied, setCopied] = createSignal(false);
+  // twpConfig.get() read directly in JSX is NOT reactive (a plain mutable
+  // object property, not a signal) — same fix as MobilePopup.tsx and the
+  // other components that hit this bug class.
+  const [targetLangs, setTargetLangs] = createSignal(twpConfig.get('targetLanguages'));
+  const [enabledServices, setEnabledServices] = createSignal(twpConfig.get('enabledServices'));
+  const [customServices, setCustomServices] = createSignal(twpConfig.get('customServices'));
 
   let isPlayingAudio = false;
   let generation = 0;
@@ -105,21 +111,32 @@ function App() {
     playAudio(text, lang, () => setListening((cur) => (cur === which ? null : cur)));
   }
   function onCopy(): void {
-    void navigator.clipboard.writeText(translatedText()).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 500);
-    });
+    void navigator.clipboard
+      .writeText(translatedText())
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 500);
+      })
+      .catch(() => {});
   }
 
   const serviceOptions = () => {
-    const enabled = twpConfig.get('enabledServices');
-    const hasLibre = twpConfig.get('customServices').some((cs) => cs.name === 'libre');
+    const enabled = enabledServices();
+    const hasLibre = customServices().some((cs) => cs.name === 'libre');
     return SERVICES.filter((s) => (s === 'libre' ? hasLibre : enabled.includes(s)));
   };
 
   onMount(async () => {
     await twpConfig.onReady();
     setReady(true);
+    setTargetLangs(twpConfig.get('targetLanguages'));
+    setEnabledServices(twpConfig.get('enabledServices'));
+    setCustomServices(twpConfig.get('customServices'));
+    twpConfig.onChanged((name, value) => {
+      if (name === 'targetLanguages') setTargetLangs(value as string[]);
+      else if (name === 'enabledServices') setEnabledServices(value as string[]);
+      else if (name === 'customServices') setCustomServices(value as Config['customServices']);
+    });
 
     const params = new URLSearchParams(location.hash.slice(1));
     const text = params.get('text');
@@ -157,7 +174,7 @@ function App() {
 
         <div class="row">
           <div class="langs">
-            <For each={twpConfig.get('targetLanguages').slice(0, 3)}>
+            <For each={targetLangs().slice(0, 3)}>
               {(code) => (
                 <button
                   class="chip"

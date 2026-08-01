@@ -145,6 +145,8 @@ export const translationService = {
   },
 
   removeTranslationsWithError(): void {
-    serviceList.forEach((service) => service.removeTranslationsWithError?.());
+    serviceList.forEach((service) => {
+      service.removeTranslationsWithError?.();
+    });
   },
 };

@@ -121,7 +121,7 @@ function cbGetExtraParameters(sourceLanguage: string, targetLanguage: string): s
   return `${sourceLanguage !== 'auto-detect' ? '&from=' + sourceLanguage : ''}&to=${targetLanguage}`;
 }
 
-function cbGetRequestBody(sourceLanguage: string, targetLanguage: string, requests: TranslationInfo[]): string {
+function cbGetRequestBody(_sourceLanguage: string, _targetLanguage: string, requests: TranslationInfo[]): string {
   return JSON.stringify(requests.map((info) => ({ text: info.originalText })));
 }
 

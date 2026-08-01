@@ -32,6 +32,7 @@
   /* Semantic colors — name by meaning, not hue, so dark mode can remap
      freely without call sites changing. */
   --prism-success: #16a34a;
+  --prism-success-dark: #15803d; /* gradient-end shade paired with --prism-success, e.g. FloatingBubble.tsx's translated-state accent */
   --prism-danger: #dc2626;
   --prism-warning: var(--prism-accent-amber);
 
@@ -39,6 +40,7 @@
   --prism-bg: #ffffff;
   --prism-bg-elevated: #ffffff;
   --prism-bg-subtle: #f8fafc;
+  --prism-bg-hover: #eef2f7; /* subtle neutral hover — distinct from bg-subtle, deliberately not indigo-tinted (that's --prism-primary-50, reserved for "active/on" states) */
   --prism-border: #e2e8f0;
   --prism-text: #0f172a;
   --prism-text-muted: #64748b;
@@ -77,6 +79,7 @@
     --prism-bg: #17172a;
     --prism-bg-elevated: #1f1f38;
     --prism-bg-subtle: #232342;
+    --prism-bg-hover: #2b2b4d;
     --prism-border: #33335a;
     --prism-text: #f1f5f9;
     --prism-text-muted: #94a3b8;

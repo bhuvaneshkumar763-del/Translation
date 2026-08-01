@@ -95,7 +95,9 @@ export function createOriginalLanguageTracker() {
   function setLanguage(next: string): void {
     if (next === language) return;
     language = next;
-    listeners.forEach((cb) => cb(next));
+    listeners.forEach((cb) => {
+      cb(next);
+    });
   }
 
   /**

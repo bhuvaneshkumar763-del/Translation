@@ -64,8 +64,12 @@ export function createMutationWatcher(options: MutationWatcherOptions) {
       }
     }
 
-    newRoots.forEach((root) => options.onNewRoot(root));
-    changedTextNodes.forEach((node) => options.onChangedTextNode(node));
+    newRoots.forEach((root) => {
+      options.onNewRoot(root);
+    });
+    changedTextNodes.forEach((node) => {
+      options.onChangedTextNode(node);
+    });
   });
 
   let dynamicContentInterval: ReturnType<typeof setInterval> | null = null;

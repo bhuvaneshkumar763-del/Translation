@@ -409,7 +409,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         .wrap { position: fixed; width: 40px; height: 40px;
                 --accent: #6366f1; --accent2: #4f46e5; }
-        .wrap.translated { --accent: #16a34a; --accent2: #15803d; }
+        .wrap.translated { --accent: #16a34a; --accent2: #15803d; } /* --prism-success / --prism-success-dark */
 
         .ball {
           position: absolute; inset: 0;
@@ -472,7 +472,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
         .primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
         .primary:active { transform: translateY(0); }
 
-        .divider { height: 1px; background: #e8edf3; margin: 1px 0; }
+        .divider { height: 1px; background: #e2e8f0; margin: 1px 0; } /* --prism-border */
 
         .row { display: flex; gap: 8px; }
         .chip {
@@ -481,7 +481,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
           cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px;
           transition: background .12s ease, border-color .12s ease, color .12s ease;
         }
-        .chip:hover { background: #eef2f7; }
+        .chip:hover { background: #eef2f7; } /* --prism-bg-hover */
         .chip svg { width: 17px; height: 17px; }
         .chip.on { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,.08); }
 
@@ -501,7 +501,7 @@ export function FloatingBubble(props: FloatingBubbleProps) {
           .panel { background: #1f1f38; color: #f1f5f9; box-shadow: 0 12px 40px -10px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06); }
           .divider { background: #33335a; }
           .chip { background: #232342; border-color: #33335a; color: #f1f5f9; }
-          .chip:hover { background: #2b2b4d; }
+          .chip:hover { background: #2b2b4d; } /* --prism-bg-hover (dark) */
           .chip.on { background: rgba(129,140,248,.18); }
           .sel { background: #232342; border-color: #33335a; color: #f1f5f9; }
           .sel option { background: #1f1f38; color: #f1f5f9; }

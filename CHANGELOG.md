@@ -1,5 +1,18 @@
 # Changelog
 
+## 13.0.0-beta.3
+
+### Minor Changes
+
+- Translate the tab-bar title, not just the page — and a post-Gen-2 audit pass fixing real bugs found along the way.
+
+  - **Tab-bar title translation** (`modules/page-translator/titleTranslator.ts`, new): Prism previously never touched `<title>` at all — page translation only ever walked from `document.body`. Ported the fix from this project's original pre-rewrite fork, including the two dead ends it took to get there: a naive single-string translation request hits a real `modules/providers/google.ts` quirk (only batches of more than one item get the `<a i=N>` wrapping Google's endpoint needs to translate reliably), and making that wrapping unconditional everywhere (the fork's first attempt) regressed every other single-text translation path in the extension. The actual fix, scoped to just the title: send it alongside a throwaway second string, and write the result to both `document.title` and the `<title>` element (they can drift out of sync — writing only one left the tab bar stale even after translation succeeded). Kept current via a `MutationObserver` on `<head>` plus a polling fallback, with an in-memory cache and a visibility gate so sites that rewrite their title constantly don't trigger a request per change. Verified with a real Playwright round trip against the built extension (mock LLM server), not just unit tests.
+  - **Fixed the same Solid.js reactivity bug in 4 more places**: `components/mobile-popup/MobilePopup.tsx` (the gear menu's ✔ checkmarks never updated after tapping an option — the most visible instance), `components/hover-tooltip/TranslatedTextTooltip.tsx`, `entrypoints/improve-translation/App.tsx`, and `entrypoints/translate-text/App.tsx`, plus `components/selection-popup/SelectionPopup.tsx` for good measure. Root cause each time: reading `twpConfig.get(...)` directly inside JSX isn't reactive (a plain object property, not a signal), so Solid never re-renders after the initial mount. A CI step now greps for this exact pattern so it can't ship a fourth time undetected.
+  - **Deleted 11 dead config keys** (never read anywhere outside the config layer itself) via a real config migration — `CONFIG_SCHEMA_VERSION` bumped to 2, exercising the migration system for the first time since it was built.
+  - **Reconciled shadow-DOM color drift**: `FloatingBubble.tsx`/`SelectionPopup.tsx` had drifted to a few near-duplicate hex values not present in `styles/tokens.css`; reconciled to the real tokens, and genuinely-new shades were added as `--prism-success-dark`/`--prism-bg-hover` instead of staying untracked.
+  - Fixed 15 real (non-stylistic) lint findings, and a bug the accompanying test suite itself found: `titleTranslator.ts` had no in-flight-request guard, so a single DOM mutation firing the `MutationObserver` more than once before the first request resolved could race a duplicate translation request for the same text.
+  - Added 48 new unit tests (41 → 89) for previously-untested modules: `modules/config/store.ts` (the exact file that caused the `chrome.storage.sync` bug fixed in the previous release), `titleTranslator.ts`, `modules/providers/registry.ts`, `dedupe.ts`, and `resweep.ts`.
+
 ## 13.0.0-beta.2
 
 ### Major Changes

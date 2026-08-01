@@ -1,5 +1,6 @@
 import { createSignal, For, onCleanup, Show, onMount as solidOnMount } from 'solid-js';
-import type { Config } from '@/modules/config/schema';
+import { createStore } from 'solid-js/store';
+import { type Config, type ConfigKey, defaultConfig } from '@/modules/config/schema';
 import { twpConfig } from '@/modules/config/store';
 import { codeToLanguage, fixTLanguageCode, getLanguageList, isRtlLanguage } from '@/modules/languages';
 import { onMessage, sendMessage } from '@/modules/messaging/protocol';
@@ -41,6 +42,15 @@ export function MobilePopup(props: MobilePopupProps) {
   const [targetLanguage, setTargetLanguageSignal] = createSignal(twpConfig.get('targetLanguage') ?? 'en');
   const [position, setPositionSignal] = createSignal(twpConfig.get('popupMobilePosition'));
 
+  // `cfg` mirrors twpConfig's state as a genuine Solid store, for every
+  // config-driven JSX read below — same fix as entrypoints/popup/App.tsx
+  // and entrypoints/options/App.tsx. twpConfig.get() read directly in JSX
+  // is NOT reactive (a plain mutable object property, not a signal), so
+  // Solid never re-evaluates it after the initial render: this is why the
+  // gear menu's ✔ checkmarks never updated after tapping an option, even
+  // though the underlying setting was correctly saved.
+  const [cfg, setCfg] = createStore<Config>({ ...defaultConfig });
+
   let barRef!: HTMLDivElement;
   let keepOnScreenTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -64,6 +74,8 @@ export function MobilePopup(props: MobilePopupProps) {
   }
 
   solidOnMount(() => {
+    setCfg(Object.fromEntries((Object.keys(defaultConfig) as ConfigKey[]).map((k) => [k, twpConfig.get(k)])) as Config);
+
     keepOnScreenTimer = setInterval(() => {
       if (
         visible() &&
@@ -86,6 +98,7 @@ export function MobilePopup(props: MobilePopupProps) {
     const offShowPopup = onMessage('showPopupMobile', () => show());
 
     const unsubConfig = twpConfig.onChanged((name, value) => {
+      setCfg(name, value as never);
       if (name === 'pageTranslatorService') setServiceSignal(value as Config['pageTranslatorService']);
       else if (name === 'targetLanguage') setTargetLanguageSignal((value as string | null) ?? 'en');
       else if (name === 'popupMobilePosition') setPositionSignal(value as Config['popupMobilePosition']);
@@ -200,7 +213,7 @@ export function MobilePopup(props: MobilePopupProps) {
     return codeToLanguage(fixed, effectiveUiLanguage());
   };
   const langTarget = () => codeToLanguage(targetLanguage(), effectiveUiLanguage());
-  const recentLangs = () => twpConfig.get('targetLanguages');
+  const recentLangs = () => cfg.targetLanguages;
   const allLangs = () =>
     Object.entries(getLanguageList(effectiveUiLanguage())).sort((a, b) => a[1].localeCompare(b[1]));
 
@@ -279,25 +292,25 @@ export function MobilePopup(props: MobilePopupProps) {
           <div class="menu" style={{ [position() === 'top' ? 'top' : 'bottom']: '56px' }}>
             <div class="menuItem" on:click={toggleShowSelectedButton}>
               <span>Show "translate selection" button</span>
-              <span>{twpConfig.get('showTranslateSelectedButton') === 'yes' ? '✔' : ''}</span>
+              <span>{cfg.showTranslateSelectedButton === 'yes' ? '✔' : ''}</span>
             </div>
             <Show when={props.getOriginalLanguage() !== 'und' && props.getOriginalLanguage() !== targetLanguage()}>
               <div class="menuItem" on:click={toggleAlwaysTranslateFromLang}>
                 <span>Always translate from {langOriginal()}</span>
-                <span>{twpConfig.get('alwaysTranslateLangs').includes(props.getOriginalLanguage()) ? '✔' : ''}</span>
+                <span>{cfg.alwaysTranslateLangs.includes(props.getOriginalLanguage()) ? '✔' : ''}</span>
               </div>
               <div class="menuItem" on:click={toggleNeverTranslateFromLang}>
                 <span>Never translate from {langOriginal()}</span>
-                <span>{twpConfig.get('neverTranslateLangs').includes(props.getOriginalLanguage()) ? '✔' : ''}</span>
+                <span>{cfg.neverTranslateLangs.includes(props.getOriginalLanguage()) ? '✔' : ''}</span>
               </div>
             </Show>
             <div class="menuItem" on:click={toggleNeverTranslateSite}>
               <span>Never translate this site</span>
-              <span>{twpConfig.get('neverTranslateSites').includes(props.hostname) ? '✔' : ''}</span>
+              <span>{cfg.neverTranslateSites.includes(props.hostname) ? '✔' : ''}</span>
             </div>
             <div class="menuItem" on:click={toggleKeepOnScreen}>
               <span>Keep on screen</span>
-              <span>{twpConfig.get('popupMobileKeepOnScren') === 'yes' ? '✔' : ''}</span>
+              <span>{cfg.popupMobileKeepOnScren === 'yes' ? '✔' : ''}</span>
             </div>
             <div class="menuItem" on:click={toggleChangePosition}>
               <span>Position: {position()}</span>

@@ -17,11 +17,14 @@ import {
  *
  * Storage shape: one top-level chrome.storage.local key per config key
  * (matching the old code exactly, not one combined blob), so an existing
- * install's stored settings load without any migration step. A handful of
- * keys were renamed for style during the port (translateTag_pre ->
- * translateTagPre, deepl_confirmed -> deeplConfirmed) — legacyStorageKeyByConfigKey
- * maps those back to their old storage key so this reads an existing
- * install's data under the OLD name once, the first time each key is read.
+ * install's stored settings load without any migration step. A couple of
+ * keys were renamed for style during the port (deepl_confirmed ->
+ * deeplConfirmed) — legacyStorageKeyByConfigKey maps those back to their old
+ * storage key so this reads an existing install's data under the OLD name
+ * once, the first time each key is read. (`translateTag_pre`/`translateTagPre`
+ * used to be the other entry here — both spellings were deleted outright in
+ * the dead-config-key cleanup, `CONFIG_SCHEMA_VERSION` 2, since the setting
+ * was never read anywhere.)
  *
  * Unlike the old `onChanged`, this returns an unsubscribe function. The old
  * version had no way to unsubscribe at all (every caller just accumulated a
@@ -78,6 +81,17 @@ async function migrateStorageIfNeeded(): Promise<void> {
   if (Object.keys(changedEntries).length > 0) {
     await browser.storage.local.set(changedEntries);
   }
+
+  // A migration signals "delete this key" by omitting it from its returned
+  // object (`delete entries[key]`) rather than by a magic value — detect
+  // that here and actually remove it from storage. browser.storage.local.set
+  // above only ever merges, so a key a migration dropped would otherwise
+  // just sit there orphaned forever instead of actually going away.
+  const removedKeys = Object.keys(rawEntries).filter((key) => !Object.hasOwn(migrated, key));
+  if (removedKeys.length > 0) {
+    await browser.storage.local.remove(removedKeys);
+  }
+
   await configSchemaVersionItem.setValue(CONFIG_SCHEMA_VERSION);
 }
 
@@ -140,7 +154,9 @@ let readyPromise: Promise<void> | null = null;
 const onReadyCallbacks: Array<() => void> = [];
 
 function notify(name: ConfigKey, newValue: unknown) {
-  listeners.forEach((cb) => cb(name, newValue));
+  listeners.forEach((cb) => {
+    cb(name, newValue);
+  });
 }
 
 // Every item watches itself so state[] stays current and onChanged fires for
@@ -219,27 +235,10 @@ async function initConfig(): Promise<void> {
     items.alwaysTranslateLangs.setValue(state.alwaysTranslateLangs),
   ]);
 
-  // --- hotkeys sync, ported from lib/config.js ---
-  // chrome.commands is only available in the background/extension-page
-  // context, not content scripts — same feature-detection guard as the old
-  // code, so hotkeys only actually get (re)synced from wherever this runs
-  // with access to it.
-  if (typeof browser !== 'undefined' && browser.commands?.getAll) {
-    try {
-      const results = await browser.commands.getAll();
-      const hotkeys = { ...state.hotkeys };
-      for (const result of results) {
-        if (result.name) hotkeys[result.name] = result.shortcut ?? '';
-      }
-      state.hotkeys = hotkeys;
-      await items.hotkeys.setValue(hotkeys);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
   configIsReady = true;
-  onReadyCallbacks.forEach((cb) => cb());
+  onReadyCallbacks.forEach((cb) => {
+    cb();
+  });
   onReadyCallbacks.length = 0;
 }
 

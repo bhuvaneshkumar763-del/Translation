@@ -32,9 +32,20 @@ function App() {
   const [service, setService] = createSignal(twpConfig.get('pageTranslatorService'));
   const [targetLanguage, setTargetLanguageSignal] = createSignal(twpConfig.get('targetLanguage') ?? 'en');
   const [dontSortResults, setDontSortResults] = createSignal(twpConfig.get('dontSortResults'));
+  // twpConfig.get() read directly in JSX is NOT reactive (a plain mutable
+  // object property, not a signal) — same fix as MobilePopup.tsx and the
+  // other components that hit this bug class. This window is short-lived,
+  // but config can still change while it's open (e.g. the options page
+  // edited in another tab), so it's worth getting right rather than just
+  // reading once at construction time.
+  const [targetLangs, setTargetLangs] = createSignal(twpConfig.get('targetLanguages'));
 
   onMount(async () => {
     await twpConfig.onReady();
+    setTargetLangs(twpConfig.get('targetLanguages'));
+    twpConfig.onChanged((name, value) => {
+      if (name === 'targetLanguages') setTargetLangs(value as string[]);
+    });
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) {
       setReady(true);
@@ -130,7 +141,7 @@ function App() {
             on:change={(e) => setTargetLanguageSignal((e.currentTarget as HTMLSelectElement).value)}
           >
             <optgroup label="Recents">
-              <For each={twpConfig.get('targetLanguages')}>
+              <For each={targetLangs()}>
                 {(code) => <option value={code}>{codeToLanguage(code, effectiveUiLanguage())}</option>}
               </For>
             </optgroup>

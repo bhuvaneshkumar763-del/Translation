@@ -318,7 +318,17 @@ complete.** What landed:
   for the same reason `FloatingBubble.tsx` can't (closed shadow root on
   arbitrary third-party pages) — their palette is duplicated inline,
   matching `FloatingBubble.tsx`'s established Session 3 pattern exactly
-  (same hex values), not reinvented. The three standalone windows
+  (same hex values), not reinvented. **Correction, found by a later audit:**
+  this "same hex values" claim was not actually true at the time it was
+  written — `FloatingBubble.tsx` and `SelectionPopup.tsx` had drifted to a
+  handful of near-duplicate hex values (`#e8edf3` vs. the real border token
+  `#e2e8f0`, plus a couple of shades — `#15803d`, `#eef2f7`, `#2b2b4d` —
+  that had no token equivalent at all). Reconciled post-Gen-2: the
+  near-duplicates now use the actual token hex, and the genuinely-new
+  shades were added to `styles/tokens.css` as `--prism-success-dark` and
+  `--prism-bg-hover` (light/dark) so they're traceable rather than orphaned
+  — see the inline `/* --prism-* */` comments at each hardcoded hex in
+  `FloatingBubble.tsx`. The three standalone windows
   (real top-level extension pages, not shadow DOM) `@import` the token file
   directly, same as the popup/options pattern from Session 3. Verified with
   real screenshots (light + dark) of all three standalone windows, plus a
@@ -561,6 +571,138 @@ capability checks for `i18n.detectLanguage`/`scripting.*`, and the
 effective config. Two consecutive misdiagnoses of an untestable browser is
 the argument for it — one glance at this output would have caught the
 storage split immediately.
+
+## Tab-bar title translation
+
+Added post-Gen-2, in response to a real user report: Prism translated the
+page but never the tab-bar title. `modules/page-translator/titleTranslator.ts`
+is a standalone module (unit-testable without a DOM-walking page) wired into
+`translateLoop.ts`'s `translatePage()`/`restorePage()`.
+
+**Why this needed its own module, not a tweak to the normal text-node path**:
+`collectTextNodes()` in `translateLoop.ts` walks from `document.body` —
+`<title>` lives in `<head>` and was never even collected. And a naive
+single-string translation call for the title would hit a real
+`modules/providers/google.ts` quirk: `cbTransformRequest` only wraps a
+request in `<a i=N>` markers when the batch has more than one item
+(`arr.length > 1`) — Google's endpoint does not reliably translate a single
+bare string sent without that wrapper.
+
+**The fix history matters — don't redo the first attempt.** The proven
+approach (ported from this project's original pre-rewrite fork, which
+solved the exact same bug) went through two dead ends before landing:
+- ✗ Making the `<a i=N>` wrapping unconditional everywhere. That's a global
+  change hitting every single-text translation path in the extension
+  (selection popup, hover tooltips, ...), not just the title, and it made
+  several of those worse.
+- ✓ **What actually works, scoped to just this module**: send the title
+  alongside a throwaway second string (`[[title, ' ']]`) so it reliably
+  lands on the `arr.length > 1` branch, then keep only the first result and
+  discard the second.
+- ✓ **The piece that actually fixed the tab bar visually**: a page's title
+  is really two things that can drift apart — the `<title>` DOM element and
+  the browser-visible `document.title` property. `applyTabTitle()` writes
+  both, each in its own try/catch, creating `<title>` if it's missing.
+
+Refinements, both proven necessary by the fork's own history: an in-memory
+cache (`sourceLang>targetLang:text`, capped at 50 entries) so sites that
+cycle their title constantly (notification counters, chapter switchers)
+don't trigger a request per change; and a visibility gate (reusing the
+`document.visibilityState === 'visible'` signal already in `resweep.ts`,
+not a second one) so a backgrounded tab isn't re-checked, with one catch-up
+check on refocus.
+
+Kept current via a `MutationObserver` on `<head>` (childList + subtree +
+characterData) plus a ~1.5s polling fallback — some sites' title writes
+don't reliably fire observers — both torn down on `restore()`. SPA
+navigation/chapter-switch detection reuses `resweep.ts`'s existing
+`onHrefChange` hook rather than a second href-watcher.
+
+**Verified with a real Playwright round trip** against the built extension
+(mock LLM HTTP server + local static test page, same pattern as the Gen 2
+Session 2 LLM verification): translated title, confirmed `document.title`
+and the `<title>` element agree, mutated the title from page JS and
+confirmed it retranslated within one poll interval, then restored and
+confirmed the last real (pre-translation) title came back — not
+committed as a permanent test (ad hoc, matches this repo's established
+"Testing" pattern), but it ran and passed for real, not just structurally.
+
+## Post-Gen-2 audit: lint cleanup and a correction to prior lint claims
+
+A deep audit after Gen 2 shipped fixed the "meaningful" subset of lint
+findings (real correctness/logic rules, not stylistic ones):
+`noUnusedVariables` (1), `noUnusedFunctionParameters` (3, via `--unsafe`
+auto-fix — prefixed unused params with `_`), `useIterableCallbackReturn` (8,
+manual — wrapped `arr.forEach((x) => sideEffect(x))` in braces so the
+arrow's implicit return isn't flagged as a stray value), `noGlobalIsNan`
+(2) and `noGlobalIsFinite` (1, via `--unsafe` auto-fix — `isNaN`/`isFinite`
+→ `Number.isNaN`/`Number.isFinite`). All 15 fixed, verified with a full
+`tsc`/test/build pass after. **No CI gate added** — same explicit choice as
+every prior session, not an oversight.
+
+**Correction to an earlier claim in this file** (Session 5's writeup,
+above): it stated the lint-finding profile was "~45 findings, mostly
+`a11y/useButtonType`" and, separately, a later planning pass claimed that
+count had dropped to **zero** a11y findings. Neither was accurate — a real
+`npx biome check . --max-diagnostics=300` run at the time of this audit
+found **39 real a11y findings** (`useButtonType` 27, `useSemanticElements`
+5, `useFocusableInteractive` 4, `noSvgWithoutTitle` 3), concentrated in
+`entrypoints/options/App.tsx`, `entrypoints/translate-text/App.tsx`, and
+`components/bubble/FloatingBubble.tsx`. These were deliberately left
+unfixed here (per the user's explicit scoping choice: fix the meaningful
+logic-rule findings, not the larger stylistic/a11y backlog, and don't gate
+CI on it yet) — recorded accurately so a future session doesn't trust either
+prior wrong count. After the 15 meaningful fixes above, the real remaining
+total is 39 errors (all a11y) + 38 warnings (23 `noNonNullAssertion`, 7
+`noExplicitAny`, the rest complexity/style) + 11 infos (`useTemplate`).
+
+## Post-Gen-2 audit: test coverage for previously-untested modules
+
+`modules/config/store.ts`, `modules/page-translator/titleTranslator.ts`,
+`modules/providers/registry.ts`, `modules/page-translator/dedupe.ts`, and
+`modules/page-translator/resweep.ts` had zero tests before this — `store.ts`
+in particular is the exact file that caused the shipped `chrome.storage.sync`
+split-brain bug (see "storage.sync removed" above), so it was the highest
+priority.
+
+- **`store.ts` needed a real `browser` global, not a hand-stubbed one.**
+  `modules/config/store.ts` is built on `@wxt-dev/storage`, which resolves
+  its own module-scope `browser` binding *once*, when the module first
+  loads (`globalThis.browser?.runtime?.id ? globalThis.browser :
+  globalThis.chrome`) — a `vi.stubGlobal('browser', ...)` inside a test body
+  runs too late to affect that. Fixed by adding `@webext-core/fake-browser`
+  (a real in-memory WebExtension API implementation, already a transitive
+  `wxt` dependency — added as an explicit `devDependency`) via its `/auto`
+  entry point in `tests/setup.ts`, which runs as a Vitest `setupFile` —
+  guaranteed to execute before any test file's own static imports, same
+  reason `fake-indexeddb/auto` already lives there. A test that needs
+  specific browser-API behavior can still override individual methods with
+  `vi.stubGlobal`/`vi.spyOn` as usual (confirmed this doesn't break the
+  existing `ensureContentScript.test.ts`, which does exactly that).
+- **`store.ts`/`registry.ts` hold module-level singleton state** (`state`,
+  `configIsReady`, `serviceList`, ...) — each test gets a fresh instance via
+  `vi.resetModules()` + a dynamic `await import(...)`, backed by
+  `fakeBrowser.reset()`, rather than sharing one instance across tests.
+- **A real bug found while writing `titleTranslator.test.ts`**, not a test
+  artifact: `translateTitleString` had no in-flight-request guard. A single
+  DOM mutation can fire the `MutationObserver` more than once before the
+  first resulting request resolves (confirmed against real happy-dom
+  behavior, not assumed) — each of those ticks would race a duplicate
+  request for the exact same text, since the cache is only populated once
+  the *first* one finishes. Fixed with an `inFlightKey` guard in
+  `titleTranslator.ts`, verified by a dedicated test plus every other title
+  test still passing (a regression here would have shown up as duplicate
+  `sendMessage` calls in nearly all of them).
+- **Not a source bug, a test-isolation trap worth documenting**: happy-dom's
+  `document` is shared across every test in one file, not recreated per
+  test — a `titleTranslator` whose `start()` was called leaves a live
+  `MutationObserver` on `<head>` until `restore()` runs. Forgetting to tear
+  one down means a *later* test's title mutation fires every earlier test's
+  still-active observer too. `titleTranslator.test.ts` guards against this
+  with a tracked-instances-array + blanket `afterEach` teardown so it can't
+  be forgotten per-test.
+- 48 new tests added (41 → 89 total), all passing alongside a full
+  `tsc`/build (both browsers)/`test:e2e`/`npm audit` pass.
 
 ## Known gaps / next things to look at
 - **Release notes aren't wired into the new options page.** `showReleaseNotes`

@@ -6,10 +6,11 @@
 > extension actually does *today*, not what it used to do.
 >
 > The extension was rebuilt from an older fork into "Prism" — new name, a
-> new indigo/violet look across every screen, an AI-powered translation
-> engine alongside the classic Google/Bing/etc. options, and cross-device
-> settings sync. That rebuild is complete — everything below describes the
-> finished product, not a work in progress. See
+> new indigo/violet look across every screen, and an AI-powered translation
+> engine alongside the classic Google/Bing/etc. options. That rebuild is
+> complete — everything below describes the finished product, not a work in
+> progress. (Cross-device settings sync was tried and then removed — see
+> item 13 below.) See
 > `/Users/jb/.claude/plans/so-whats-the-plan-polished-elephant.md` if you
 > want the session-by-session engineering history behind how it got here.
 
@@ -32,7 +33,10 @@ etc.
 Click the little icon in your toolbar, or press a keyboard shortcut, and
 the whole page gets translated in place — the layout stays the same, just
 the text changes to your language. Click again (or the same shortcut) to
-flip it back to the original.
+flip it back to the original. The name shown in your browser's tab bar gets
+translated too, not just the page itself — including sites that keep
+rewriting their own tab title (a chapter counter, an unread-message badge),
+which Prism keeps catching up to automatically while the tab is open.
 
 **2. Choose which translation service does the work.**
 It can use Google Translate, Bing Translator, Yandex Translate, DeepL, or

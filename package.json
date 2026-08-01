@@ -2,7 +2,7 @@
   "name": "prism-translate",
   "description": "Prism — AI Page Translator (WXT + TypeScript + Solid)",
   "private": true,
-  "version": "13.0.0-beta.2",
+  "version": "13.0.0-beta.3",
   "type": "module",
   "scripts": {
     "dev": "wxt",

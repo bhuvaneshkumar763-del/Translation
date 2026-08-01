@@ -22,6 +22,22 @@ jobs:
       - name: Typecheck
         run: npm run compile
 
+      - name: Guard against non-reactive config reads in JSX
+        # twpConfig.get() read directly inside a JSX expression is NOT
+        # reactive — it's a plain mutable object property, not a signal, so
+        # Solid never re-evaluates it after the initial render. This exact
+        # bug shipped THREE separate times (popup, options, mobile-popup —
+        # see CLAUDE.md's "Testing" section) before all known instances were
+        # fixed via a createStore/signal mirror of twpConfig's state. This
+        # catches every instance found at the time it was added, in
+        # milliseconds, with no new dependency — a unit test can't catch
+        # this class since it's a rendering behavior, not a logic bug.
+        run: |
+          if grep -rnE '=\{twpConfig\.get\(|>\{twpConfig\.get\(' components/ entrypoints/; then
+            echo "::error::Found twpConfig.get() read directly inside JSX — not reactive, Solid won't re-render on change. Mirror the needed key(s) into a createSignal/createStore instead (see MobilePopup.tsx or popup/App.tsx for the established pattern)."
+            exit 1
+          fi
+
       - name: Unit tests
         run: npm test
 

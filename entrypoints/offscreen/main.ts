@@ -402,7 +402,7 @@ class TtsService {
       audio.pause();
       // If `currentTime` isn't `duration`, an audio stream stays active in Firefox.
       // https://github.com/FilipePS/Traduzir-paginas-web/issues/802
-      if (!isNaN(audio.duration) && isFinite(audio.duration)) {
+      if (!Number.isNaN(audio.duration) && Number.isFinite(audio.duration)) {
         audio.currentTime = audio.duration;
       }
     });

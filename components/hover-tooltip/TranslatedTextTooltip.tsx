@@ -78,6 +78,13 @@ export function TranslatedTextTooltip(props: TranslatedTextTooltipProps) {
   const [targetLanguage, setTargetLanguageSignal] = createSignal(
     twpConfig.get('targetLanguageTextTranslation') ?? 'en',
   );
+  // twpConfig.get() read directly in JSX is NOT reactive (a plain mutable
+  // object property, not a signal) — this dedicated signal is what makes
+  // the recent-language chips update after the list changes elsewhere
+  // (e.g. the options page), same fix as the other reactivity bugs in this
+  // codebase. See MobilePopup.tsx's fuller writeup of the same root cause.
+  const [targetLangs, setTargetLangs] = createSignal(twpConfig.get('targetLanguages'));
+  const [enabledServices, setEnabledServices] = createSignal(twpConfig.get('enabledServices'));
   const retranslateRef: { current: (() => void) | null } = { current: null };
 
   function findTranslatableAncestor(node: Element): { text: string; el: Element } | null {
@@ -229,6 +236,12 @@ export function TranslatedTextTooltip(props: TranslatedTextTooltipProps) {
         case 'targetLanguageTextTranslation':
           setTargetLanguageSignal((value as string | null) ?? 'en');
           break;
+        case 'targetLanguages':
+          setTargetLangs(value as string[]);
+          break;
+        case 'enabledServices':
+          setEnabledServices(value as string[]);
+          break;
       }
     });
     const unsubOriginalLang = props.onOriginalLanguageChange((lang) => {
@@ -266,7 +279,7 @@ export function TranslatedTextTooltip(props: TranslatedTextTooltipProps) {
   }
 
   const serviceOptions = () => {
-    const enabled = twpConfig.get('enabledServices');
+    const enabled = enabledServices();
     return PAGE_TEXT_SERVICES.filter((s) => enabled.includes(s));
   };
 
@@ -301,7 +314,7 @@ export function TranslatedTextTooltip(props: TranslatedTextTooltipProps) {
       <Show when={visible()}>
         <div class="tooltip" ref={tooltipRef} style={{ top: `${pos().top}px`, left: `${pos().left}px` }}>
           <div class="head">
-            <For each={twpConfig.get('targetLanguages').slice(0, 3)}>
+            <For each={targetLangs().slice(0, 3)}>
               {(code) => (
                 <div
                   class="chip"

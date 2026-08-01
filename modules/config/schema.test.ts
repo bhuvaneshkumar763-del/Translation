@@ -55,10 +55,49 @@ describe('legacyStorageKeyByConfigKey', () => {
 });
 
 describe('applyConfigMigrations', () => {
-  it('is a no-op when there are no migrations registered (current state)', () => {
-    expect(configMigrations).toEqual([]);
+  it('is a no-op above the current version', () => {
     const raw = { pageTranslatorService: 'google', someOtherKey: 42 };
-    expect(applyConfigMigrations(raw, 0)).toEqual(raw);
+    expect(applyConfigMigrations(raw, CONFIG_SCHEMA_VERSION)).toEqual(raw);
+  });
+
+  it('toVersion 2 strips the dead config keys and leaves everything else untouched', () => {
+    const raw = {
+      pageTranslatorService: 'google',
+      targetLanguage: 'es',
+      showButtonInTheAddressBar: 'yes',
+      popupBlueWhenSiteIsTranslated: 'no',
+      showReleaseNotes: 'yes',
+      hotkeys: { toggleTranslation: 'Alt+A' },
+      translateTag_pre: 'yes',
+      translateTagPre: 'no',
+      translateDynamicallyCreatedContent: 'yes',
+      autoTranslateWhenClickingALink: 'no',
+      useAlternativeService: 'yes',
+      addPaddingToPage: 'no',
+      installDateTime: 12345,
+      popupPanelSection: 2,
+    };
+    const migrated = applyConfigMigrations(raw, 1);
+    expect(migrated).toEqual({ pageTranslatorService: 'google', targetLanguage: 'es' });
+    // The dead keys are truly absent (not just set to undefined) — this is
+    // what tells store.ts's migrateStorageIfNeeded to actually
+    // browser.storage.local.remove() them, not just leave a stale value.
+    for (const key of [
+      'showButtonInTheAddressBar',
+      'popupBlueWhenSiteIsTranslated',
+      'showReleaseNotes',
+      'hotkeys',
+      'translateTag_pre',
+      'translateTagPre',
+      'translateDynamicallyCreatedContent',
+      'autoTranslateWhenClickingALink',
+      'useAlternativeService',
+      'addPaddingToPage',
+      'installDateTime',
+      'popupPanelSection',
+    ]) {
+      expect(Object.hasOwn(migrated, key)).toBe(false);
+    }
   });
 
   it('skips migrations at or below the stored version', () => {
