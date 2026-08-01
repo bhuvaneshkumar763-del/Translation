@@ -1,0 +1,98 @@
+/*
+ * Prism shared design tokens.
+ *
+ * Every UI surface (popup, options, floating bubble, tooltips, etc.) should
+ * import this file and build its own CSS on top of these custom properties
+ * instead of hardcoding colors/spacing/radius directly — that's the whole
+ * point of it existing. See CLAUDE.md for which surfaces have adopted it so
+ * far; as of this file's creation, none have yet (Session 1 only creates
+ * and documents this file — adoption happens in later sessions).
+ *
+ * Import with: @import '../../styles/tokens.css'; (adjust relative path
+ * per entrypoint/component depth) at the top of each surface's CSS file,
+ * or via a <link>/inline <style> import for components using injected
+ * styles (e.g. the shadow-DOM floating bubble).
+ */
+
+:root {
+  /* Brand: indigo/violet primary, spectrum accents (amber/rose/teal) used
+     sparingly to signal "AI-active" states (e.g. LLM engine checking a
+     translation) — echoes the prism icon's refracted-light motif. */
+  --prism-primary-50: #eef2ff;
+  --prism-primary-100: #e0e7ff;
+  --prism-primary-300: #a5b4fc;
+  --prism-primary-500: #6366f1;
+  --prism-primary-600: #4f46e5;
+  --prism-primary-700: #4338ca;
+
+  --prism-accent-amber: #f59e0b;
+  --prism-accent-rose: #f43f5e;
+  --prism-accent-teal: #2dd4d3;
+
+  /* Semantic colors — name by meaning, not hue, so dark mode can remap
+     freely without call sites changing. */
+  --prism-success: #16a34a;
+  --prism-success-dark: #15803d; /* gradient-end shade paired with --prism-success, e.g. FloatingBubble.tsx's translated-state accent */
+  --prism-danger: #dc2626;
+  --prism-warning: var(--prism-accent-amber);
+
+  /* Surfaces & text — light mode defaults. */
+  --prism-bg: #ffffff;
+  --prism-bg-elevated: #ffffff;
+  --prism-bg-subtle: #f8fafc;
+  --prism-bg-hover: #eef2f7; /* subtle neutral hover — distinct from bg-subtle, deliberately not indigo-tinted (that's --prism-primary-50, reserved for "active/on" states) */
+  --prism-border: #e2e8f0;
+  --prism-text: #0f172a;
+  --prism-text-muted: #64748b;
+  --prism-text-on-primary: #ffffff;
+
+  /* Spacing scale (px). */
+  --prism-space-1: 4px;
+  --prism-space-2: 8px;
+  --prism-space-3: 12px;
+  --prism-space-4: 16px;
+  --prism-space-5: 24px;
+  --prism-space-6: 32px;
+
+  /* Radius scale. */
+  --prism-radius-sm: 6px;
+  --prism-radius-md: 10px;
+  --prism-radius-lg: 16px;
+  --prism-radius-full: 999px;
+
+  /* Shadows. */
+  --prism-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --prism-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.12);
+  --prism-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.18);
+
+  /* Type scale. */
+  --prism-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --prism-text-xs: 11px;
+  --prism-text-sm: 13px;
+  --prism-text-md: 14px;
+  --prism-text-lg: 16px;
+  --prism-text-xl: 20px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --prism-bg: #17172a;
+    --prism-bg-elevated: #1f1f38;
+    --prism-bg-subtle: #232342;
+    --prism-bg-hover: #2b2b4d;
+    --prism-border: #33335a;
+    --prism-text: #f1f5f9;
+    --prism-text-muted: #94a3b8;
+
+    --prism-primary-50: #1e1b4b;
+    --prism-primary-100: #26235e;
+    --prism-primary-300: #818cf8;
+    --prism-primary-500: #818cf8;
+    --prism-primary-600: #a5b4fc;
+    --prism-primary-700: #c7d2fe;
+
+    --prism-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --prism-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --prism-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+  }
+}

@@ -1,0 +1,83 @@
+@import "../../styles/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 320px;
+  font-family: var(--prism-font-sans);
+  font-size: var(--prism-text-sm);
+  color: var(--prism-text);
+  background: var(--prism-bg);
+}
+
+.loading {
+  padding: var(--prism-space-5);
+  text-align: center;
+  opacity: 0.6;
+}
+
+.page {
+  padding: var(--prism-space-3);
+  position: relative;
+}
+
+.closeBtn {
+  position: absolute;
+  top: var(--prism-space-2);
+  right: var(--prism-space-2);
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--prism-text-sm);
+  opacity: 0.6;
+  border-radius: var(--prism-radius-sm);
+  padding: 4px 7px;
+}
+.closeBtn:hover {
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.field {
+  margin-bottom: var(--prism-space-3);
+}
+.field label {
+  display: block;
+  margin-bottom: var(--prism-space-1);
+  font-weight: 600;
+  font-size: var(--prism-text-xs);
+}
+select {
+  width: 100%;
+  padding: 6px var(--prism-space-2);
+  border-radius: var(--prism-radius-sm);
+  border: 1px solid var(--prism-border);
+  background: var(--prism-bg-subtle);
+  color: inherit;
+  font-size: var(--prism-text-xs);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--prism-border);
+  margin: var(--prism-space-3) 0;
+}
+
+.applyBtn {
+  width: 100%;
+  margin-top: var(--prism-space-2);
+  padding: 9px;
+  border: none;
+  border-radius: var(--prism-radius-sm);
+  background: linear-gradient(135deg, var(--prism-primary-500), var(--prism-primary-600));
+  color: var(--prism-text-on-primary);
+  font-weight: 700;
+  font-size: var(--prism-text-sm);
+  cursor: pointer;
+}
+.applyBtn:hover {
+  filter: brightness(1.06);
+}

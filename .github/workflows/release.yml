@@ -1,0 +1,92 @@
+name: Release
+
+# Runs after CI finishes on push (not PRs) to main/claude branches — gated
+# on CI's own conclusion, not re-triggered independently on push, so a
+# broken build never gets auto-released just because package.json changed.
+# The actual "did the version change" check happens inside the job (via
+# gh release view) so this is safe to fire on every CI run, not just
+# version-bump commits.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main, "claude/**"]
+
+jobs:
+  release:
+    # CI's own workflow runs twice per push while PR #1 is open (once for
+    # the `push` event, once for `pull_request`) — both completions fire
+    # this workflow_run trigger independently. Restricting to the `push`-
+    # triggered CI run avoids two Release jobs racing to create the same
+    # tag (confirmed the hard way: the loser's `gh release create` failed
+    # with "already exists" — harmless since the winner's release was
+    # correct, but a noisy, confusing red X for no real reason).
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Same commit CI just verified, not necessarily the current branch
+          # tip (which may have moved on by the time this job starts).
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check if this version is already released
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'false'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.check.outputs.exists == 'false'
+        run: npm ci
+
+      - name: Build + package Chrome
+        if: steps.check.outputs.exists == 'false'
+        run: npm run zip
+
+      - name: Build + package Firefox
+        if: steps.check.outputs.exists == 'false'
+        run: npm run zip:firefox
+
+      - name: Extract this version's changelog section
+        if: steps.check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          awk -v ver="## $VERSION" 'index($0, ver) == 1 { found=1; next } found && /^## / { exit } found' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then echo "(No changelog entry found for $VERSION.)" > release-notes.md; fi
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          PRERELEASE_FLAG=()
+          # semver prerelease (e.g. 12.1.0-beta.0) always ships as a GitHub
+          # prerelease — separate from Chrome Web Store / AMO's own review
+          # channels, this just labels the GitHub Release itself so it
+          # doesn't show up as "Latest".
+          if [[ "$VERSION" == *-* ]]; then PRERELEASE_FLAG=(--prerelease); fi
+          gh release create "v$VERSION" \
+            .output/*-chrome.zip .output/*-firefox.zip .output/*-sources.zip \
+            --title "Prism v$VERSION" \
+            --notes-file release-notes.md \
+            --target "${{ github.event.workflow_run.head_sha }}" \
+            "${PRERELEASE_FLAG[@]}"

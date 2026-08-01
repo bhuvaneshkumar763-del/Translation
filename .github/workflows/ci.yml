@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run compile
+
+      - name: Guard against non-reactive config reads in JSX
+        # twpConfig.get() read directly inside a JSX expression is NOT
+        # reactive — it's a plain mutable object property, not a signal, so
+        # Solid never re-evaluates it after the initial render. This exact
+        # bug shipped THREE separate times (popup, options, mobile-popup —
+        # see CLAUDE.md's "Testing" section) before all known instances were
+        # fixed via a createStore/signal mirror of twpConfig's state. This
+        # catches every instance found at the time it was added, in
+        # milliseconds, with no new dependency — a unit test can't catch
+        # this class since it's a rendering behavior, not a logic bug.
+        run: |
+          if grep -rnE '=\{twpConfig\.get\(|>\{twpConfig\.get\(' components/ entrypoints/; then
+            echo "::error::Found twpConfig.get() read directly inside JSX — not reactive, Solid won't re-render on change. Mirror the needed key(s) into a createSignal/createStore instead (see MobilePopup.tsx or popup/App.tsx for the established pattern)."
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Bundle-size guardrail
+        # Tightened in Session 5 now that the redesigned UI's real size is
+        # known post-Sessions 2-4 (~2.32MB) — 3MB (~1.3x) leaves headroom for
+        # legitimate growth (new locale strings, icon variants) while still
+        # catching a real regression (e.g. an accidentally-bundled dependency
+        # or duplicated assets). Was a generous 5MB placeholder through
+        # Session 4, deliberately not tightened until this build's shape was
+        # actually final — see CLAUDE.md's Session 2 notes.
+        run: |
+          SIZE_BYTES=$(du -sk .output/chrome-mv3 | cut -f1)
+          SIZE_BYTES=$((SIZE_BYTES * 1024))
+          THRESHOLD_BYTES=$((3 * 1024 * 1024))
+          echo "chrome-mv3 build size: $((SIZE_BYTES / 1024)) KB (threshold: $((THRESHOLD_BYTES / 1024)) KB)"
+          if [ "$SIZE_BYTES" -gt "$THRESHOLD_BYTES" ]; then
+            echo "::error::Build size exceeded the guardrail threshold — investigate what grew before merging."
+            exit 1
+          fi
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke tests
+        run: npm run test:e2e
+
+      - name: Package Chrome zip
+        run: npm run zip
+
+      - name: Upload Chrome build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension-zip
+          path: .output/*-chrome.zip
+          if-no-files-found: error
+          # upload-artifact@v4 treats any file inside a dot-prefixed
+          # directory as "hidden" and silently skips it — including .output,
+          # which is where wxt writes builds/zips — unless this is set.
+          # Without it, the glob genuinely matched zero files even though
+          # the zip step ran successfully right before, which is exactly
+          # what broke CI the first time this workflow ran for real.
+          include-hidden-files: true
+
+  build-firefox:
+    # Session 5: build:firefox existed as an npm script since the skeleton
+    # rewrite but was never validated anywhere automated — this job closes
+    # that gap. Kept separate from build-and-test (rather than adding steps
+    # there) so a Firefox-only build break is immediately attributable
+    # instead of buried in the Chrome job's log, and so it runs in parallel.
+    # No E2E here: this repo's Playwright harness only drives Chromium (see
+    # CLAUDE.md's "Testing" section) — a real Firefox runtime smoke test is
+    # a further follow-up, not something to bolt on as an afterthought here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension (Firefox)
+        run: npm run build:firefox
+
+      - name: Verify expected entrypoints exist
+        run: |
+          for f in manifest.json popup.html options.html improve-translation.html translate-text.html translate-document.html; do
+            if [ ! -f ".output/firefox-mv2/$f" ]; then
+              echo "::error::Expected file missing from Firefox build: $f"
+              exit 1
+            fi
+          done
+
+      - name: Package Firefox zip (+ required sources zip for AMO review)
+        run: npm run zip:firefox
+
+      - name: Upload Firefox build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-extension-zip
+          path: .output/*-firefox.zip
+          if-no-files-found: error
+          # See the matching comment on the Chrome upload step — .output is
+          # a dot-prefixed directory, silently excluded by default.
+          include-hidden-files: true
+
+      - name: Upload Firefox sources artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-sources-zip
+          path: .output/*-sources.zip
+          if-no-files-found: error
+          include-hidden-files: true

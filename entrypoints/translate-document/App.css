@@ -1,0 +1,59 @@
+@import "../../styles/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 320px;
+  font-family: var(--prism-font-sans);
+  font-size: var(--prism-text-sm);
+  color: var(--prism-text);
+  background: var(--prism-bg);
+}
+
+.loading {
+  padding: var(--prism-space-5);
+  text-align: center;
+  opacity: 0.6;
+}
+
+.page {
+  padding: var(--prism-space-4);
+  text-align: center;
+}
+
+.title {
+  font-weight: 700;
+  margin-bottom: var(--prism-space-1);
+}
+.hint {
+  font-size: var(--prism-text-xs);
+  color: var(--prism-text-muted);
+  margin-bottom: var(--prism-space-4);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--prism-space-2);
+}
+
+.serviceBtn {
+  padding: var(--prism-space-3);
+  border: 1px solid var(--prism-border);
+  border-radius: var(--prism-radius-sm);
+  background: var(--prism-bg-subtle);
+  color: var(--prism-text);
+  font-size: var(--prism-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease;
+}
+.serviceBtn:hover {
+  transform: translateY(-1px);
+  border-color: var(--prism-primary-500);
+}

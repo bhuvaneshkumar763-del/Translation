@@ -1,0 +1,14 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "prism-translate": "12.0.0"
+  },
+  "changesets": [
+    "install-time-onboarding",
+    "options-popup-reactivity-fix",
+    "remove-storage-sync",
+    "revert-permission-model",
+    "title-translation-and-audit-cleanup"
+  ]
+}

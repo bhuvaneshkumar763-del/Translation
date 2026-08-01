@@ -1,0 +1,88 @@
+@import "../../styles/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 340px;
+  font-family: var(--prism-font-sans);
+  font-size: var(--prism-text-sm);
+  color: var(--prism-text);
+  background: var(--prism-bg);
+}
+
+.loading {
+  padding: var(--prism-space-5);
+  text-align: center;
+  opacity: 0.6;
+}
+
+.page {
+  padding: var(--prism-space-3) var(--prism-space-4) var(--prism-space-4);
+}
+
+.listenRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.textbox {
+  padding: var(--prism-space-3);
+  font-size: var(--prism-text-lg);
+  line-height: 1.4;
+  max-width: 480px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  border-radius: var(--prism-radius-sm);
+  background: var(--prism-bg-subtle);
+  border: 1px solid var(--prism-border);
+  margin-bottom: var(--prism-space-2);
+}
+#origText {
+  outline: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--prism-space-2);
+  margin-top: var(--prism-space-1);
+}
+.langs,
+.services,
+.actions {
+  display: flex;
+  gap: var(--prism-space-1);
+}
+.actions {
+  margin-left: auto;
+}
+
+.chip,
+.iconBtn {
+  border: 1px solid var(--prism-border);
+  border-radius: var(--prism-radius-sm);
+  background: var(--prism-bg-subtle);
+  color: var(--prism-text);
+  font-size: var(--prism-text-xs);
+  font-weight: 700;
+  padding: var(--prism-space-2) 9px;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.chip.on,
+.iconBtn.on {
+  border-color: var(--prism-primary-500);
+  color: var(--prism-primary-600);
+  background: rgba(99, 102, 241, 0.1);
+}
+.chip:hover,
+.iconBtn:hover {
+  border-color: var(--prism-primary-500);
+}
